@@ -60,6 +60,12 @@ class InventoryManager {
             'product_id' => $productId, 'warehouse_id' => $warehouseId,
             'record_type' => 'incoming', 'quantity' => $quantity, 'date' => $date, 'batch_number' => $batchNumber,
         ]);
+
+        // Notify distributors via SMS that stock is now available
+        if ($this->smsService !== null) {
+            $this->smsService->notifyDistributors($productId, $warehouseId, $quantity);
+        }
+
         return $id;
     }
 
@@ -90,11 +96,9 @@ class InventoryManager {
             'record_type' => 'outgoing', 'quantity' => $quantity, 'date' => $date, 'batch_number' => $batchNumber,
         ]);
 
-        // Trigger SMS alert check after stock is reduced
-        if ($this->smsService !== null) {
-            $currentStock = $this->getCurrentStock($productId, $warehouseId);
-            $this->smsService->checkAndAlert($productId, $warehouseId, $currentStock);
-        }
+        // Check low stock and create in-system notification if below threshold
+        $currentStock = $this->getCurrentStock($productId, $warehouseId);
+        $this->checkLowStockNotification($productId, $warehouseId, $currentStock);
 
         return $id;
     }
@@ -176,6 +180,52 @@ class InventoryManager {
         if (!$date || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             throw new InvalidArgumentException("Invalid date format, expected YYYY-MM-DD", 400);
         }
+    }
+
+    /**
+     * Check if stock is below any active alert threshold and create an in-system notification.
+     */
+    private function checkLowStockNotification(int $productId, int $warehouseId, int $currentStock): void
+    {
+        // Find active alert rules where threshold >= currentStock
+        $stmt = $this->pdo->prepare(
+            'SELECT threshold FROM alert_rules
+              WHERE product_id = ? AND warehouse_id = ? AND threshold >= ? AND is_active = 1
+              LIMIT 1'
+        );
+        $stmt->execute([$productId, $warehouseId, $currentStock]);
+        $rule = $stmt->fetch();
+
+        if (!$rule) return;
+
+        // Resolve names
+        $pStmt = $this->pdo->prepare('SELECT name FROM products WHERE id = ?');
+        $pStmt->execute([$productId]);
+        $productName   = $pStmt->fetchColumn() ?: "Product #{$productId}";
+        $warehouseName = $warehouseId === 1 ? 'Farm' : ($warehouseId === 2 ? 'Paranaque' : "Warehouse #{$warehouseId}");
+
+        $message = sprintf(
+            'LOW STOCK: %s at %s — current stock: %d (threshold: %d). Please replenish.',
+            $productName,
+            $warehouseName,
+            $currentStock,
+            (int)$rule['threshold']
+        );
+
+        // Insert in-system notification (avoid duplicates within last 60 minutes)
+        $dupCheck = $this->pdo->prepare(
+            'SELECT COUNT(*) FROM system_notifications
+              WHERE product_id = ? AND warehouse_id = ? AND is_read = 0
+                AND created_at >= DATE_SUB(NOW(), INTERVAL 60 MINUTE)'
+        );
+        $dupCheck->execute([$productId, $warehouseId]);
+        if ((int)$dupCheck->fetchColumn() > 0) return;
+
+        $ins = $this->pdo->prepare(
+            'INSERT INTO system_notifications (type, product_id, warehouse_id, message)
+             VALUES (\'low_stock\', ?, ?, ?)'
+        );
+        $ins->execute([$productId, $warehouseId, $message]);
     }
 
     /**

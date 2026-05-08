@@ -32,8 +32,7 @@ class SmsService
     // -------------------------------------------------------------------------
 
     /**
-     * Compose the alert message body.
-     * Requirement 2.2: must contain product name, warehouse name, current stock, threshold.
+     * Compose the low-stock alert message body (kept for legacy/internal use).
      */
     public function composeMessage(
         string $productName,
@@ -48,6 +47,88 @@ class SmsService
             $currentStock,
             $threshold
         );
+    }
+
+    /**
+     * Compose a stock-available message for distributors.
+     * Sent when new incoming stock is recorded.
+     */
+    public function composeDistributorMessage(
+        string $productName,
+        string $warehouseName,
+        int $quantity
+    ): string {
+        return sprintf(
+            '[Blue Eco Farm] STOCK AVAILABLE: %d units of %s are now available at %s. Contact us to place your order.',
+            $quantity,
+            $productName,
+            $warehouseName
+        );
+    }
+
+    /**
+     * Notify all active distributors via SMS that stock is available.
+     * Called after a successful incoming stock record.
+     */
+    public function notifyDistributors(int $productId, int $warehouseId, int $quantity): void
+    {
+        $productName   = $this->resolveProductName($productId);
+        $warehouseName = $this->resolveWarehouseName($warehouseId);
+        $message       = $this->composeDistributorMessage($productName, $warehouseName, $quantity);
+
+        $stmt = $this->db->prepare(
+            'SELECT id, phone FROM distributors WHERE is_active = 1'
+        );
+        $stmt->execute();
+        $distributors = $stmt->fetchAll();
+
+        foreach ($distributors as $distributor) {
+            $success     = false;
+            $errorDetail = null;
+            try {
+                $success = $this->send($distributor['phone'], $message);
+            } catch (\Throwable $e) {
+                $errorDetail = $e->getMessage();
+            }
+            $this->logDistributorDispatch(
+                (int)$distributor['id'],
+                $distributor['phone'],
+                $message,
+                $success,
+                $errorDetail
+            );
+        }
+    }
+
+    /**
+     * Log a distributor SMS dispatch to sms_alert_log using a special rule_id = 0 sentinel.
+     */
+    private function logDistributorDispatch(
+        int $distributorId,
+        string $recipient,
+        string $message,
+        bool $success,
+        ?string $errorDetail
+    ): void {
+        // Use a dedicated distributor_sms_log if it exists, otherwise reuse sms_alert_log
+        // We store distributor_id in error_detail field for traceability when rule_id is not applicable
+        try {
+            $stmt = $this->db->prepare(
+                'INSERT INTO distributor_sms_log
+                    (distributor_id, recipient, message, status, error_detail, dispatched_at)
+                 VALUES
+                    (:distributor_id, :recipient, :message, :status, :error_detail, NOW())'
+            );
+            $stmt->execute([
+                ':distributor_id' => $distributorId,
+                ':recipient'      => $recipient,
+                ':message'        => $message,
+                ':status'         => $success ? 'success' : 'failure',
+                ':error_detail'   => $errorDetail,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('distributor_sms_log insert failed: ' . $e->getMessage());
+        }
     }
 
     /**

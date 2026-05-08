@@ -35,6 +35,25 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .logout-btn { color:#ef9a9a; text-decoration:none; padding:0.3rem 0.8rem; border:1px solid rgba(239,154,154,0.4); border-radius:20px; font-size:0.82rem; transition:background .2s; }
         .logout-btn:hover { background:rgba(239,154,154,0.15); }
 
+        /* Notification bell */
+        .notif-btn { position:relative; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); color:#c8e6c9; font-size:1.1rem; cursor:pointer; padding:0.35rem 0.7rem; border-radius:6px; transition:background .2s; }
+        .notif-btn:hover { background:rgba(255,255,255,0.25); }
+        .notif-badge { position:absolute; top:-6px; right:-6px; background:#e53935; color:#fff; font-size:0.65rem; font-weight:700; border-radius:50%; width:18px; height:18px; display:flex; align-items:center; justify-content:center; display:none; }
+
+        /* Notification panel */
+        #notifPanel { display:none; position:fixed; top:70px; right:1.5rem; width:360px; max-height:480px; background:#fff; border-radius:10px; box-shadow:0 4px 24px rgba(0,0,0,0.18); z-index:9998; overflow:hidden; flex-direction:column; }
+        #notifPanel.open { display:flex; }
+        .notif-header { display:flex; align-items:center; justify-content:space-between; padding:0.85rem 1rem; background:#f1f8f1; border-bottom:1px solid #dceadc; }
+        .notif-header h3 { margin:0; font-size:0.95rem; color:#1b5e20; }
+        .notif-mark-all { font-size:0.78rem; color:#2e7d32; cursor:pointer; text-decoration:underline; }
+        .notif-list { overflow-y:auto; flex:1; }
+        .notif-item { padding:0.85rem 1rem; border-bottom:1px solid #f0f4f0; cursor:pointer; transition:background .15s; }
+        .notif-item:hover { background:#f9fdf9; }
+        .notif-item.unread { background:#fff8e1; border-left:3px solid #f9a825; }
+        .notif-item .notif-msg { font-size:0.85rem; color:#333; line-height:1.4; }
+        .notif-item .notif-time { font-size:0.75rem; color:#999; margin-top:0.25rem; }
+        .notif-empty { padding:2rem; text-align:center; color:#aaa; font-size:0.88rem; }
+
         .layout { display:flex !important; padding-top:64px; min-height:100vh; }
 
         .sidebar {
@@ -98,11 +117,26 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <button class="sidebar-toggle" onclick="toggleSidebar()">&#9776;</button>
     <div class="topbar-brand">Blue Eco Farm</div>
     <div class="topbar-user">
+        <button class="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
+            🔔
+            <span class="notif-badge" id="notifBadge"></span>
+        </button>
         <div class="user-avatar">&#9679;</div>
         <span class="user-name"><?= htmlspecialchars($currentUser['full_name']) ?></span>
         <a href="logout.php" class="logout-btn">Logout</a>
     </div>
 </header>
+
+<!-- Notification Panel -->
+<div id="notifPanel">
+    <div class="notif-header">
+        <h3>🔔 Low Stock Alerts</h3>
+        <span class="notif-mark-all" onclick="markAllRead()">Mark all as read</span>
+    </div>
+    <div class="notif-list" id="notifList">
+        <div class="notif-empty">Loading...</div>
+    </div>
+</div>
 
 <div class="layout">
 
@@ -143,12 +177,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             </div>
 
             <div class="nav-group">
-                <span class="nav-group-label">Alerts</span>
-                <a href="alerts.php" class="nav-item <?= $currentPage === 'alerts.php' ? 'active' : '' ?>">
-                    <span class="nav-dot"></span> Alert Rules
-                </a>
-                <a href="sms_log.php" class="nav-item <?= $currentPage === 'sms_log.php' ? 'active' : '' ?>">
-                    <span class="nav-dot"></span> SMS Log
+                <span class="nav-group-label">Notifications</span>
+                <a href="distributors.php" class="nav-item <?= $currentPage === 'distributors.php' ? 'active' : '' ?>">
+                    <span class="nav-dot"></span> Distributors
                 </a>
             </div>
 
@@ -165,3 +196,93 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     </aside>
 
     <main class="main-content" id="mainContent">
+
+<script>
+// ── Sidebar toggle ──────────────────────────────────────
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+    document.getElementById('mainContent').classList.toggle('expanded');
+}
+
+// ── Notification bell ───────────────────────────────────
+let notifPanelOpen = false;
+
+async function loadNotifCount() {
+    try {
+        const res  = await fetch('api/notifications.php?action=unread_count');
+        const data = await res.json();
+        const badge = document.getElementById('notifBadge');
+        if (data.count > 0) {
+            badge.textContent = data.count > 99 ? '99+' : data.count;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    } catch(e) {}
+}
+
+async function loadNotifications() {
+    try {
+        const res  = await fetch('api/notifications.php?action=list');
+        const data = await res.json();
+        const list = document.getElementById('notifList');
+
+        if (!Array.isArray(data) || !data.length) {
+            list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+            return;
+        }
+
+        list.innerHTML = data.map(n => `
+            <div class="notif-item ${n.is_read == 0 ? 'unread' : ''}" onclick="markRead(${n.id}, this)">
+                <div class="notif-msg">⚠️ ${escHtml(n.message)}</div>
+                <div class="notif-time">${n.created_at}</div>
+            </div>
+        `).join('');
+    } catch(e) {}
+}
+
+function escHtml(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toggleNotifPanel() {
+    const panel = document.getElementById('notifPanel');
+    notifPanelOpen = !notifPanelOpen;
+    panel.classList.toggle('open', notifPanelOpen);
+    if (notifPanelOpen) loadNotifications();
+}
+
+async function markRead(id, el) {
+    el.classList.remove('unread');
+    await fetch('api/notifications.php?action=mark_read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+    });
+    loadNotifCount();
+}
+
+async function markAllRead() {
+    await fetch('api/notifications.php?action=mark_read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+    });
+    document.querySelectorAll('.notif-item.unread').forEach(el => el.classList.remove('unread'));
+    loadNotifCount();
+}
+
+// Close panel when clicking outside
+document.addEventListener('click', function(e) {
+    const panel = document.getElementById('notifPanel');
+    const btn   = document.querySelector('.notif-btn');
+    if (notifPanelOpen && !panel.contains(e.target) && !btn.contains(e.target)) {
+        notifPanelOpen = false;
+        panel.classList.remove('open');
+    }
+});
+
+// Poll for new notifications every 60 seconds
+loadNotifCount();
+setInterval(loadNotifCount, 60000);
+</script>
