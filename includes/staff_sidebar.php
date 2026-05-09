@@ -1,3 +1,17 @@
+<?php
+/**
+ * staff_sidebar.php — Blue Eco Farm Staff Portal
+ *
+ * Expects $currentPage to be set on the including page.
+ * Reads the logged-in user from $_SESSION['user'] (set by AuthManager::startSession).
+ */
+
+$sidebarUser = $_SESSION['user'] ?? [];
+$sidebarName = $sidebarUser['full_name'] ?? 'Staff';
+$sidebarRole = ucfirst($sidebarUser['role'] ?? 'staff');
+$sidebarInitial = strtoupper(substr($sidebarName, 0, 1));
+?>
+
 <div class="sidebar">
 
     <div class="brand">
@@ -18,7 +32,7 @@
 
     <div class="nav-links">
 
-        <a href="dashboard.php"
+        <a href="staff_dashboard.php"
            class="<?php echo ($currentPage == 'dashboard') ? 'active' : ''; ?>">
             🏠 Home
         </a>
@@ -43,26 +57,83 @@
             📝 Movement Logs
         </a>
 
-        <a href="profile.php"
-           class="<?php echo ($currentPage == 'profile') ? 'active' : ''; ?>">
-            👤 Profile Settings
-        </a>
-
     </div>
 
+    <!-- DATE WIDGET -->
     <div style="
-        margin-top:auto;
         background:#f3f4f6;
         padding:15px;
         border-radius:12px;
+        margin-bottom:12px;
     ">
-
         <small>Today</small><br>
+        <strong><?php echo date('l, M j'); ?></strong>
+    </div>
 
-        <strong>
-            <?php echo date('l, M j'); ?>
-        </strong>
+    <!-- USER INFO + LOGOUT -->
+    <div style="
+        border-top:1px solid #e5e7eb;
+        padding-top:14px;
+    ">
+        <div style="
+            display:flex;
+            align-items:center;
+            gap:10px;
+        ">
+            <!-- Avatar -->
+            <div style="
+                width:36px;
+                height:36px;
+                background:#2d5a27;
+                border-radius:50%;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-size:0.9rem;
+                font-weight:700;
+                color:#fff;
+                flex-shrink:0;
+            ">
+                <?php echo $sidebarInitial; ?>
+            </div>
 
+            <!-- Name & Role -->
+            <div style="overflow:hidden;">
+                <div style="
+                    font-size:0.85rem;
+                    font-weight:600;
+                    color:#1f2937;
+                    white-space:nowrap;
+                    overflow:hidden;
+                    text-overflow:ellipsis;
+                ">
+                    <?php echo htmlspecialchars($sidebarName); ?>
+                </div>
+                <div style="
+                    font-size:0.72rem;
+                    color:#6b7280;
+                ">
+                    <?php echo htmlspecialchars($sidebarRole); ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logout -->
+        <a href="logout.php" style="
+            display:flex;
+            align-items:center;
+            gap:8px;
+            margin-top:12px;
+            padding-top:10px;
+            border-top:1px solid #f3f4f6;
+            color:#9ca3af;
+            font-size:0.8rem;
+            text-decoration:none;
+            transition:color .2s;
+        " onmouseover="this.style.color='#374151'"
+           onmouseout="this.style.color='#9ca3af'">
+            🚪 Log out
+        </a>
     </div>
 
 </div>

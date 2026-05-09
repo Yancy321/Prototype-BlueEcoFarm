@@ -407,11 +407,10 @@ body{
         </tbody>
 
     </table>
-
     <h3 style="color: var(--primary-green); font-weight: 700; margin-top: 40px; margin-bottom: 20px;">Inventory Report</h3>
 
         <div style="margin-bottom: 20px; color: var(--text-muted); font-size: 0.9rem;">
-            <p>Report generated on <?php echo date('F j, Y'); ?>. This analytics report provides key insights into inventory performance, stock levels, and operational trends.</p>
+            <p>Report generated on <?php echo date('F j, Y'); ?>. A quick overview of stock levels and inventory trends.</p>
         </div>
 
     <!-- CHARTS -->
