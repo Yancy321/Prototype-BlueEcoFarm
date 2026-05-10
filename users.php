@@ -64,6 +64,7 @@ require_once 'includes/header.php';
             <select name="role">
                 <option value="staff">Staff</option>
                 <option value="admin">Admin</option>
+                <option value="distributor">Distributor</option>
             </select>
         </div>
         <button type="submit" class="btn btn-primary">Create Account</button>
