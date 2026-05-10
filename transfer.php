@@ -1,215 +1,263 @@
 <?php
 session_start();
 
-// Database Connection
+require_once 'src/AuthManager.php';
+AuthManager::requireLogin();
+
 $conn = new mysqli("localhost", "root", "", "blue_eco_farm");
+
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// 1. Sidebar Logic: Check session to see which sidebar to load
-// This ensures the page works for whoever is logged in.
-$userRole = $_SESSION['role'] ?? ''; 
-$currentPage = 'transfer'; 
+/* =========================
+   FIXED ROLE HANDLING
+========================= */
+$userRole = $_SESSION['user']['role'] ?? 'staff';
+$currentPage = 'transfer';
 
-// 2. Data Fetching
+/* =========================
+   DATA
+========================= */
 $products = $conn->query("SELECT id, name FROM products ORDER BY id");
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Warehouse Transfer | Blue Eco Farm</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/sidebar_style.css">
-    <style>
-        /* DASHBOARD STYLING */
-        :root{
-            --primary-green:#2d5a27;
-            --light-bg:#f8faf9;
-            --border-color:#e5e7eb;
-            --text-main:#1f2937;
-            --text-muted:#6b7280;
-        }
+<meta charset="UTF-8">
+<title>Warehouse Transfers | Blue Eco Farm</title>
 
-        *{ box-sizing:border-box; }
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 
-        body{
-            margin:0;
-            font-family:'Inter',sans-serif;
-            background:var(--light-bg);
-            color:var(--text-main);
-            display:flex;
-        }
+<style>
+:root {
+    --green:#2d5a27;
+    --bg:#f4faf2;
+    --border:#e2ece0;
+    --text:#1a2e18;
+    --muted:#6b7c69;
+    --sidebar-w:260px;
+}
 
-        .main{
-            margin-left:260px; /* Space for the sidebar */
-            flex-grow:1;
-            padding:48px;
-        }
+body {
+    margin:0;
+    font-family:'DM Sans',sans-serif;
+    background:var(--bg);
+}
 
-        header h2 { margin: 0; font-size: 1.8rem; }
-        header p { color: var(--text-muted); margin: 5px 0 32px; }
+/* =========================
+   LAYOUT SYSTEM (FIXED)
+========================= */
+.app-layout {
+    display:flex;
+}
 
-        .card {
-            background: #fff;
-            padding: 24px;
-            border-radius: 16px;
-            border: 1px solid var(--border-color);
-            margin-bottom: 24px;
-        }
+/* MAIN CONTENT */
+.main {
+    margin-left:var(--sidebar-w);
+    flex:1;
+    padding:40px 44px;
+}
 
-        /* FORM LAYOUT */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            align-items: flex-end;
-        }
+/* HEADER */
+.page-header h2 {
+    margin:0;
+    font-size:1.8rem;
+}
 
-        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; }
-        
-        .form-group select, .form-group input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            font-family: inherit;
-        }
+.page-header p {
+    color:var(--muted);
+    margin-top:6px;
+}
 
-        .btn-primary {
-            background: var(--primary-green);
-            color: white;
-            border: none;
-            padding: 14px 24px;
-            border-radius: 10px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
+/* CARD */
+.card {
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:22px;
+    margin-top:20px;
+}
 
-        /* TABLE - Matching Dashboard */
-        .inventory-table {
-            width:100%;
-            background:#fff;
-            border-radius:16px;
-            border:1px solid var(--border-color);
-            border-collapse:collapse;
-            overflow:hidden;
-        }
+/* FORM */
+.form-grid {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:16px;
+}
 
-        .inventory-table th {
-            background:#f9fafb;
-            text-align:left;
-            padding:16px;
-            font-size:0.85rem;
-            color:var(--text-muted);
-        }
+.form-group label {
+    display:block;
+    font-weight:600;
+    margin-bottom:6px;
+    font-size:.9rem;
+}
 
-        .inventory-table td {
-            padding:16px;
-            border-top:1px solid var(--border-color);
-        }
+input, select {
+    width:100%;
+    padding:10px;
+    border:1px solid var(--border);
+    border-radius:10px;
+}
 
-        .highlight-id { font-weight: 600; color: var(--primary-green); }
-    </style>
+/* BUTTON */
+.btn {
+    background:var(--green);
+    color:#fff;
+    border:none;
+    padding:12px 18px;
+    border-radius:10px;
+    font-weight:700;
+    cursor:pointer;
+}
+
+/* TABLE */
+.table {
+    width:100%;
+    border-collapse:collapse;
+    background:#fff;
+    border-radius:16px;
+    overflow:hidden;
+    border:1px solid var(--border);
+}
+
+.table th {
+    background:#f7fbf5;
+    text-align:left;
+    padding:14px;
+    font-size:.8rem;
+    color:var(--muted);
+}
+
+.table td {
+    padding:14px;
+    border-top:1px solid var(--border);
+}
+
+/* SEARCH */
+.search {
+    padding:10px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    width:250px;
+}
+</style>
 </head>
+
 <body>
 
-<?php 
-    // LOAD SIDEBAR BASED ON SESSION ROLE
-    if ($userRole === 'admin') {
-        include 'includes/sidebar.php'; 
-    } else {
-        include 'includes/staff_sidebar.php'; 
-    }
-?>
+<div class="app-layout">
 
-<div class="main">
-    <header>
-        <h2>Warehouse Transfers</h2>
-        <p>Log inventory movement between Farm and Paranaque locations.</p>
-    </header>
+    <!-- =========================
+         FIXED ROLE SIDEBAR SWITCH
+    ========================= -->
+    <?php if ($userRole === 'admin'): ?>
+        <?php include 'includes/header.php'; ?>
+    <?php else: ?>
+        <?php include 'includes/staff_sidebar.php'; ?>
+    <?php endif; ?>
 
-    <div class="card">
-        <h3 style="margin-top:0; margin-bottom:20px;">Execute New Transfer</h3>
-        <div id="alertBox"></div>
-        
-        <form id="transferForm" class="form-grid">
-            <div class="form-group">
-                <label>Product</label>
-                <select name="product_id" id="product_id" required>
-                    <option value="">— Select product —</option>
-                    <?php while($p = $products->fetch_assoc()): ?>
-                        <option value="<?= $p['id'] ?>"><?= htmlspecialchars($p['name']) ?></option>
-                    <?php endwhile; ?>
-                </select>
-            </div>
+    <!-- MAIN CONTENT -->
+    <div class="main">
 
-            <div class="form-group">
-                <label>Quantity (kg)</label>
-                <input type="number" name="quantity" id="quantity" min="1" placeholder="0" required>
-            </div>
+        <div class="page-header">
+            <h2>Warehouse Transfers</h2>
+            <p>Move inventory between Farm and Paranaque locations.</p>
+        </div>
 
-            <div class="form-group">
-                <label>Transfer Date</label>
-                <input type="date" name="date" id="transfer_date" required>
-            </div>
+        <!-- FORM -->
+        <div class="card">
 
-            <div style="grid-column: span 3; text-align: right; margin-top: 10px;">
-                <button type="submit" class="btn-primary">Transfer Stock</button>
-            </div>
-        </form>
+            <h3>Stock Transfer</h3>
+
+            <div id="alertBox"></div>
+
+            <form id="transferForm" class="form-grid">
+
+                <div class="form-group">
+                    <label>Product</label>
+                    <select id="product_id" required>
+                        <option value="">Select product</option>
+                        <?php while($p = $products->fetch_assoc()): ?>
+                            <option value="<?= $p['id'] ?>">
+                                <?= htmlspecialchars($p['name']) ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" id="quantity" min="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="transfer_date">
+                </div>
+
+                <div style="grid-column:span 3; text-align:right;">
+                    <button class="btn">Execute Transfer</button>
+                </div>
+
+            </form>
+        </div>
+
+        <!-- SEARCH + TABLE -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:25px;">
+            <h3>Transfer History</h3>
+            <input id="searchInput" class="search" placeholder="Search product...">
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Product</th>
+                    <th>Quantity</th>
+                    <th>Date</th>
+                    <th>From</th>
+                    <th>To</th>
+                </tr>
+            </thead>
+
+            <tbody id="transferBody">
+                <tr>
+                    <td colspan="6" style="text-align:center;">Loading...</td>
+                </tr>
+            </tbody>
+        </table>
+
     </div>
-
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-        <h3 style="margin:0;">Recent Transfer History</h3>
-        <input type="text" id="searchInput" placeholder="Search by product..." 
-               style="padding:10px; border-radius:8px; border:1px solid var(--border-color); width:250px;">
-    </div>
-
-    <table class="inventory-table">
-        <thead>
-            <tr>
-                <th>Reference ID</th>
-                <th>Product</th>
-                <th>Quantity</th>
-                <th>Date</th>
-                <th>Source</th>
-                <th>Destination</th>
-            </tr>
-        </thead>
-        <tbody id="transferBody">
-            <tr><td colspan="6" style="text-align:center; padding: 40px; color: var(--text-muted);">Loading history...</td></tr>
-        </tbody>
-    </table>
 </div>
 
 <script>
-let allTransfers = [];
-document.getElementById('transfer_date').value = new Date().toISOString().split('T')[0];
+document.getElementById('transfer_date').value =
+    new Date().toISOString().split('T')[0];
 
+let allTransfers = [];
+
+/* LOAD */
 async function loadTransfers() {
-    try {
-        const res = await fetch('api/transfer.php?action=list');
-        allTransfers = await res.json();
-        renderTable(allTransfers);
-    } catch (err) {
-        document.getElementById('transferBody').innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Failed to load data.</td></tr>`;
-    }
+    const res = await fetch('api/transfer.php?action=list');
+    allTransfers = await res.json();
+    render(allTransfers);
 }
 
-function renderTable(transfers) {
+/* RENDER */
+function render(data) {
     const tbody = document.getElementById('transferBody');
-    if (!transfers || transfers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">No transfers found.</td></tr>`;
+
+    if (!data.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No records</td></tr>`;
         return;
     }
-    tbody.innerHTML = transfers.map(r => `
+
+    tbody.innerHTML = data.map(r => `
         <tr>
-            <td><span class="highlight-id">TRF-${String(r.id).padStart(4, '0')}</span></td>
-            <td><strong>${r.product_name}</strong></td>
+            <td>TRF-${String(r.id).padStart(4,'0')}</td>
+            <td>${r.product_name}</td>
             <td>${r.quantity} kg</td>
             <td>${new Date(r.transfer_date).toLocaleDateString()}</td>
             <td>Farm</td>
@@ -218,37 +266,46 @@ function renderTable(transfers) {
     `).join('');
 }
 
+/* SEARCH */
 document.getElementById('searchInput').addEventListener('input', function() {
-    const term = this.value.toLowerCase();
-    const filtered = allTransfers.filter(r => r.product_name.toLowerCase().includes(term));
-    renderTable(filtered);
+    const val = this.value.toLowerCase();
+    const filtered = allTransfers.filter(r =>
+        r.product_name.toLowerCase().includes(val)
+    );
+    render(filtered);
 });
 
+/* SUBMIT */
 document.getElementById('transferForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    const alertBox = document.getElementById('alertBox');
+
     const data = {
         product_id: document.getElementById('product_id').value,
         quantity: document.getElementById('quantity').value,
-        date: document.getElementById('transfer_date').value,
+        date: document.getElementById('transfer_date').value
     };
+
     const res = await fetch('api/transfer.php?action=create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(data)
     });
+
     const json = await res.json();
+
+    const alertBox = document.getElementById('alertBox');
+
     if (json.success) {
-        alertBox.innerHTML = '<div style="background:#e8f5e9; color:#2d5a27; padding:15px; border-radius:10px; margin-bottom:20px;">✓ Transfer successful</div>';
+        alertBox.innerHTML = `<div style="color:green;margin:10px 0;">Transfer successful</div>`;
         this.reset();
-        document.getElementById('transfer_date').value = new Date().toISOString().split('T')[0];
         loadTransfers();
     } else {
-        alertBox.innerHTML = `<div style="background:#ffebee; color:#c62828; padding:15px; border-radius:10px; margin-bottom:20px;">${json.error}</div>`;
+        alertBox.innerHTML = `<div style="color:red;margin:10px 0;">${json.error}</div>`;
     }
 });
 
 loadTransfers();
 </script>
+
 </body>
 </html>
