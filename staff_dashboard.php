@@ -1,4 +1,7 @@
 <?php
+require_once 'src/AuthManager.php';
+AuthManager::requireLogin();
+
 $conn = new mysqli("localhost", "root", "", "blue_eco_farm");
 
 if ($conn->connect_error) {
