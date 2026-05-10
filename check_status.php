@@ -461,17 +461,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <!-- FOOTER LINKS -->
     <div class="footer-links">
-        <?php if ($result && $result['status'] === 'approved'): ?>
-            <div>
-                <a href="login.php"><i class="bi bi-box-arrow-in-right"></i> Go to Login</a>
-            </div>
-        <?php endif; ?>
+
+    <?php if ($result && $result['status'] === 'approved'): ?>
+
+        <!-- SHOW ONLY THIS WHEN APPROVED -->
         <div>
-            <a href="login.php"><i class="bi bi-arrow-left"></i> Back to Login</a>
+            <a href="login.php">
+                <i class="bi bi-box-arrow-in-right"></i> Go to Login
+            </a>
+        </div>
+
+    <?php else: ?>
+
+        <!-- SHOW THIS WHEN NOT APPROVED -->
+        <div>
+            <a href="login.php">
+                <i class="bi bi-arrow-left"></i> Back to Login
+            </a>
             <span class="divider-dot">·</span>
             <a href="registration.php">Register a new account</a>
         </div>
-    </div>
+
+    <?php endif; ?>
+
+</div>
 
 </div>
 

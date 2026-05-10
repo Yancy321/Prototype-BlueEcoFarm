@@ -29,9 +29,9 @@ $region        = $distRow['region'] ?? '';
     STATS — using real tables
 ========================= */
 
-// Total advance orders
+// Total advance orders (excluding cancelled)
 $totalOrders = $conn->query("
-    SELECT COUNT(*) as t FROM advance_orders WHERE distributor_id = $distributorId
+    SELECT COUNT(*) as t FROM advance_orders WHERE distributor_id = $distributorId AND status != 'Cancelled'
 ")->fetch_assoc()['t'] ?? 0;
 
 // Pending advance orders
@@ -319,7 +319,7 @@ body {
 
     <!-- PAGE HEADER -->
     <div class="page-header">
-        <h2>Welcome back, <?= htmlspecialchars(explode(' ', $businessName)[0]) ?>! 👋</h2>
+        <h2>Welcome back, <?= htmlspecialchars(explode(' ', $businessName)[0]) ?>!</h2>
         <p>Here's your partner overview for <?= date('F j, Y') ?>.</p>
     </div>
 

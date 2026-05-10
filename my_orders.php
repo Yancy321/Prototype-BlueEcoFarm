@@ -36,7 +36,7 @@ $stats = [];
 foreach (['Pending','Approved','Fulfilled','Cancelled'] as $s) {
     $stats[$s] = $conn->query("SELECT COUNT(*) as t FROM advance_orders WHERE distributor_id = $distributorId AND status = '$s'")->fetch_assoc()['t'] ?? 0;
 }
-$totalOrders = array_sum($stats);
+$totalOrders = $stats['Pending'] + $stats['Approved'] + $stats['Fulfilled']; // Exclude cancelled orders
 
 /* ORDERS — exact columns that exist in the table */
 $orders = $conn->query("

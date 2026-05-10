@@ -26,17 +26,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (strtotime($deliveryDate) <= time()) {
         $error = 'Delivery date must be in the future.';
     } else {
-        $stmt = $conn->prepare("
-            INSERT INTO advance_orders (distributor_id, product_id, quantity, order_date, target_delivery_date, status)
-            VALUES (?, ?, ?, CURDATE(), ?, 'Pending')
+        // Check available stock
+        $stockQuery = $conn->prepare("
+            SELECT COALESCE(
+                SUM(CASE WHEN record_type='incoming' THEN quantity ELSE 0 END) -
+                SUM(CASE WHEN record_type='outgoing'  THEN quantity ELSE 0 END)
+            , 0) AS available_stock
+            FROM stock_records
+            WHERE product_id = ? AND is_deleted = 0
         ");
-        $stmt->bind_param("iiis", $distributorId, $productId, $quantity, $deliveryDate);
-        if ($stmt->execute()) {
-            $success = 'Order #' . str_pad($stmt->insert_id, 4, '0', STR_PAD_LEFT) . ' placed successfully!';
+        $stockQuery->bind_param("i", $productId);
+        $stockQuery->execute();
+        $stockResult = $stockQuery->get_result()->fetch_assoc();
+        $availableStock = (int)($stockResult['available_stock'] ?? 0);
+        $stockQuery->close();
+
+        if ($quantity > $availableStock) {
+            $error = "Cannot place order. Only {$availableStock} units are currently available.";
         } else {
-            $error = 'Failed to place order. Please try again.';
+            $stmt = $conn->prepare("
+                INSERT INTO advance_orders (distributor_id, product_id, quantity, order_date, target_delivery_date, status)
+                VALUES (?, ?, ?, CURDATE(), ?, 'Pending')
+            ");
+            $stmt->bind_param("iiis", $distributorId, $productId, $quantity, $deliveryDate);
+            if ($stmt->execute()) {
+                $success = 'Order #' . str_pad($stmt->insert_id, 4, '0', STR_PAD_LEFT) . ' placed successfully!';
+            } else {
+                $error = 'Failed to place order. Please try again.';
+            }
+            $stmt->close();
         }
-        $stmt->close();
     }
 }
 
