@@ -23,7 +23,7 @@ class SmsService
     public function __construct(?PDO $db = null, ?array $config = null, ?callable $gatewayAdapter = null)
     {
         $this->db             = $db     ?? Database::getInstance();
-        $this->config         = $config ?? (require __DIR__ . '/../config/integrations.php')['sms'];
+        $this->config         = $config ?? (require realpath(__DIR__ . '/../config/integrations.php'))['sms'];
         $this->gatewayAdapter = $gatewayAdapter;
     }
 
