@@ -45,11 +45,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // Save session
-        AuthManager::startSession($user);
+        if ($user['role'] === 'distributor') {
 
-        // Redirect based on role
-        AuthManager::redirectByRole($user);
+            $conn = new mysqli("localhost", "root", "", "blue_eco_farm");
+
+            $stmt = $conn->prepare("SELECT status FROM distributors WHERE user_id = ?");
+            $stmt->bind_param("i", $user['id']);
+            $stmt->execute();
+            $dist = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            $conn->close();
+
+            if (!$dist) {
+
+                $error = 'Distributor profile not found. Please contact the admin.';
+
+            } elseif ($dist['status'] === 'pending') {
+
+                $error = 'Your account is awaiting admin approval. Please check back later.';
+
+            } elseif ($dist['status'] === 'rejected') {
+
+                $error = 'Your application has been rejected. Please contact the admin for more information.';
+
+            } else {
+
+                // Approved — start session and redirect
+                AuthManager::startSession($user);
+                AuthManager::redirectByRole($user);
+            }
+
+        } else {
+
+            // Admin / Staff — no approval needed
+            AuthManager::startSession($user);
+            AuthManager::redirectByRole($user);
+        }
 
     } else {
 
@@ -66,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Blue Eco Farm — Login</title>
 
     <link rel="stylesheet" href="assets/css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
     <style>
 
@@ -102,6 +134,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin-top: 0.25rem;
         }
 
+        /* Pending / rejected notice styling */
+        .alert-warning {
+            background: #fff7e6;
+            color: #b45309;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: .85rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .alert-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: .85rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .register-link {
+            text-align: center;
+            margin-top: 1.1rem;
+            font-size: .83rem;
+            color: #888;
+        }
+
+        .register-link a {
+            color: #2e7d32;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .register-link a:hover { text-decoration: underline; }
+
+        .status-link {
+            text-align: center;
+            margin-top: 6px;
+            font-size: .83rem;
+            color: #888;
+        }
+
+        .status-link a {
+            color: #2e7d32;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-link a:hover { text-decoration: underline; }
+        .status-link a i { font-size: .9rem; }
+
     </style>
 </head>
 
@@ -116,9 +209,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <?php if ($error): ?>
 
-        <div class="alert alert-error">
-            <?= htmlspecialchars($error) ?>
-        </div>
+        <?php if (str_contains($error, 'awaiting')): ?>
+            <div class="alert-warning">
+                <i class="bi bi-hourglass-split"></i>
+                <?= htmlspecialchars($error) ?>
+                <a href="check_status.php" style="margin-left:4px; color:#92400e; font-weight:600; white-space:nowrap;">Check status</a>
+            </div>
+
+        <?php elseif (str_contains($error, 'rejected')): ?>
+            <div class="alert-rejected">
+                <i class="bi bi-x-circle"></i>
+                <?= htmlspecialchars($error) ?>
+            </div>
+
+        <?php else: ?>
+            <div class="alert alert-error">
+                <?= htmlspecialchars($error) ?>
+            </div>
+        <?php endif; ?>
 
     <?php endif; ?>
 
@@ -133,6 +241,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 name="username"
                 required
                 autofocus
+                value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
             >
         </div>
 
@@ -156,6 +265,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </button>
 
     </form>
+
+    <div class="register-link">
+        New distributor? <a href="registration.php">Apply for an account</a>
+    </div>
+
+    <div class="status-link">
+        Already applied? <a href="check_status.php"><i class="bi bi-search"></i> Check your application status</a>
+    </div>
 
 </div>
 

@@ -267,7 +267,7 @@
             </div>
         </div>
         <a href="logout.php" class="sidebar-logout">
-            <span>🚪</span> Log out
+            <span></span> Log out
         </a>
     </div>
 

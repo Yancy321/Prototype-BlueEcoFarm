@@ -1,21 +1,30 @@
 <?php
 /**
  * staff_sidebar.php — Blue Eco Farm Staff Portal
- *
- * Expects $currentPage to be set on the including page.
- * Reads the logged-in user from $_SESSION['user'] (set by AuthManager::startSession).
  */
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 $sidebarUser = $_SESSION['user'] ?? [];
-$sidebarName = $sidebarUser['full_name'] ?? 'Staff';
+
+/* =========================
+   SAFE FALLBACK (FIX)
+========================= */
+$sidebarName = !empty($sidebarUser['full_name']) 
+    ? $sidebarUser['full_name'] 
+    : (!empty($sidebarUser['username']) ? $sidebarUser['username'] : 'Staff');
+
 $sidebarRole = ucfirst($sidebarUser['role'] ?? 'staff');
 $sidebarInitial = strtoupper(substr($sidebarName, 0, 1));
 ?>
 
 <div class="sidebar">
 
+    <!-- BRAND -->
     <div class="brand">
-        <div class="brand-logo">🍃</div>
+        <div class="brand-logo">🌿</div>
 
         <div>
             <h3 style="margin:0;">Blue Eco Farm</h3>
@@ -30,6 +39,7 @@ $sidebarInitial = strtoupper(substr($sidebarName, 0, 1));
         </div>
     </div>
 
+    <!-- NAVIGATION -->
     <div class="nav-links">
 
         <a href="staff_dashboard.php"
@@ -52,11 +62,6 @@ $sidebarInitial = strtoupper(substr($sidebarName, 0, 1));
             📋 Supplies
         </a>
 
-        <a href="logs.php"
-           class="<?php echo ($currentPage == 'logs') ? 'active' : ''; ?>">
-            📝 Movement Logs
-        </a>
-
     </div>
 
     <!-- DATE WIDGET -->
@@ -70,16 +75,18 @@ $sidebarInitial = strtoupper(substr($sidebarName, 0, 1));
         <strong><?php echo date('l, M j'); ?></strong>
     </div>
 
-    <!-- USER INFO + LOGOUT -->
+    <!-- USER PROFILE -->
     <div style="
         border-top:1px solid #e5e7eb;
         padding-top:14px;
     ">
+
         <div style="
             display:flex;
             align-items:center;
             gap:10px;
         ">
+
             <!-- Avatar -->
             <div style="
                 width:36px;
@@ -109,6 +116,7 @@ $sidebarInitial = strtoupper(substr($sidebarName, 0, 1));
                 ">
                     <?php echo htmlspecialchars($sidebarName); ?>
                 </div>
+
                 <div style="
                     font-size:0.72rem;
                     color:#6b7280;
@@ -116,9 +124,10 @@ $sidebarInitial = strtoupper(substr($sidebarName, 0, 1));
                     <?php echo htmlspecialchars($sidebarRole); ?>
                 </div>
             </div>
+
         </div>
 
-        <!-- Logout -->
+        <!-- LOGOUT -->
         <a href="logout.php" style="
             display:flex;
             align-items:center;
@@ -130,10 +139,12 @@ $sidebarInitial = strtoupper(substr($sidebarName, 0, 1));
             font-size:0.8rem;
             text-decoration:none;
             transition:color .2s;
-        " onmouseover="this.style.color='#374151'"
-           onmouseout="this.style.color='#9ca3af'">
-            🚪 Log out
+        " 
+        onmouseover="this.style.color='#374151'"
+        onmouseout="this.style.color='#9ca3af'">
+            Log out
         </a>
+
     </div>
 
 </div>
