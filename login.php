@@ -39,6 +39,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($user) {
 
+        if (!$auth->isEmailVerified($user['id'])) {
+            $_SESSION['verify_user_id'] = $user['id'];
+            header('Location: verify_email.php');
+            exit;
+        }
+
         // Save session
         AuthManager::startSession($user);
 

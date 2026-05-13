@@ -10,13 +10,23 @@ $success = '';
 // Handle create
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create') {
     try {
-        $auth->register(
+        $userId = $auth->register(
             $_POST['username'] ?? '',
             $_POST['password'] ?? '',
             $_POST['full_name'] ?? '',
+            $_POST['email'] ?? '',
             $_POST['role'] ?? 'staff'
         );
-        $success = "User '{$_POST['username']}' created successfully.";
+
+        require_once 'src/Mailer.php';
+
+        $user = $auth->getUserByUsername($_POST['username']);
+        $code = $auth->generateVerificationCode($userId);
+
+        Mailer::sendVerificationEmail($user['email'], $user['full_name'], $code);
+        Mailer::sendAccountCreatedEmail($user['email'], $user['full_name'], $user['username']);
+
+        $success = "User '{$_POST['username']}' created. Verification email sent.";
     } catch (InvalidArgumentException $e) {
         $error = $e->getMessage();
     }
@@ -56,6 +66,10 @@ require_once 'includes/header.php';
             <input type="text" name="username" required>
         </div>
         <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" required>
+        </div>
+        <div class="form-group">
             <label>Password <span style="font-weight:400;color:#888;">(min 6 chars)</span></label>
             <input type="password" name="password" required minlength="6">
         </div>
@@ -75,7 +89,7 @@ require_once 'includes/header.php';
     <h2>All Accounts</h2>
     <table>
         <thead>
-            <tr><th>ID</th><th>Full Name</th><th>Username</th><th>Role</th><th>Created</th><th>Action</th></tr>
+            <tr><th>ID</th><th>Full Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Action</th></tr>
         </thead>
         <tbody>
         <?php foreach ($users as $u): ?>
@@ -83,7 +97,15 @@ require_once 'includes/header.php';
                 <td><?= $u['id'] ?></td>
                 <td><?= htmlspecialchars($u['full_name']) ?></td>
                 <td><?= htmlspecialchars($u['username']) ?></td>
+                <td><?= htmlspecialchars($u['email']) ?></td>
                 <td><?= $u['role'] ?></td>
+                <td>
+                    <?php if ($u['is_verified']): ?>
+                        <span style="color:#2e7d32;font-weight:bold;">✓ Verified</span>
+                    <?php else: ?>
+                        <span style="color:#ff9800;font-weight:bold;">⏳ Pending</span>
+                    <?php endif; ?>
+                </td>
                 <td><?= $u['created_at'] ?></td>
                 <td>
                     <?php if ($u['id'] !== AuthManager::currentUser()['id']): ?>

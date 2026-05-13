@@ -61,16 +61,32 @@ CREATE TABLE IF NOT EXISTS users (
     username   VARCHAR(50) NOT NULL UNIQUE,
     password   VARCHAR(255) NOT NULL,  -- bcrypt hash
     full_name  VARCHAR(100) NOT NULL,
+    email      VARCHAR(100) NOT NULL UNIQUE,
     role       ENUM('admin','staff') NOT NULL DEFAULT 'staff',
+    is_verified TINYINT(1) DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Default admin account (password: Admin@2024 — change after first login)
-INSERT IGNORE INTO users (username, password, full_name, role) VALUES (
+INSERT IGNORE INTO users (username, password, full_name, email, role, is_verified) VALUES (
     'admin',
     '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
     'System Administrator',
-    'admin'
+    'admin@blueecoform.local',
+    'admin',
+    1
+);
+
+-- Email verification tokens
+CREATE TABLE IF NOT EXISTS email_verifications (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT NOT NULL,
+    code       VARCHAR(10) NOT NULL,
+    token      VARCHAR(64),
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_user_pending (user_id, code)
 );
 
 -- Forecast generation log

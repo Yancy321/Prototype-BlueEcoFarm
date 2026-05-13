@@ -28,11 +28,21 @@ class AuthManager {
         return null;
     }
 
+    /** Check if user is email verified. */
+    public function isEmailVerified(int $userId): bool {
+
+        $stmt = $this->pdo->prepare("SELECT is_verified FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        return $user && $user['is_verified'];
+    }
+
     /** Register a new user. */
     public function register(
         string $username,
         string $password,
         string $fullName,
+        string $email,
         string $role = 'staff'
     ): int {
 
@@ -48,14 +58,15 @@ class AuthManager {
         try {
 
             $stmt = $this->pdo->prepare(
-                "INSERT INTO users (username, password, full_name, role)
-                 VALUES (?, ?, ?, ?)"
+                "INSERT INTO users (username, password, full_name, email, role)
+                 VALUES (?, ?, ?, ?, ?)"
             );
 
             $stmt->execute([
                 trim($username),
                 $hash,
                 trim($fullName),
+                trim($email),
                 $role
             ]);
 
@@ -66,7 +77,7 @@ class AuthManager {
             if ($e->getCode() == 23000) {
 
                 throw new InvalidArgumentException(
-                    "Username already exists."
+                    "Username or email already exists."
                 );
             }
 
@@ -78,7 +89,7 @@ class AuthManager {
     public function listUsers(): array {
 
         return $this->pdo->query(
-            "SELECT id, username, full_name, role, created_at
+            "SELECT id, username, full_name, email, role, is_verified, created_at
              FROM users
              ORDER BY id"
         )->fetchAll();
@@ -186,5 +197,76 @@ class AuthManager {
 
         header('Location: login.php');
         exit;
+    }
+
+    /** Generate and store verification code for user. */
+    public function generateVerificationCode(int $userId): string {
+
+        $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $expiresAt = date('Y-m-d H:i:s', strtotime('+24 hours'));
+
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO email_verifications (user_id, code, expires_at) 
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE code = VALUES(code), expires_at = VALUES(expires_at)"
+        );
+
+        $stmt->execute([$userId, $code, $expiresAt]);
+
+        return $code;
+    }
+
+    /** Verify email with code. */
+    public function verifyEmailWithCode(int $userId, string $code): bool {
+
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM email_verifications 
+             WHERE user_id = ? AND code = ? AND expires_at > NOW()"
+        );
+
+        $stmt->execute([$userId, $code]);
+        $verification = $stmt->fetch();
+
+        if (!$verification) {
+            return false;
+        }
+
+        $updateStmt = $this->pdo->prepare(
+            "UPDATE users SET is_verified = 1 WHERE id = ?"
+        );
+
+        $updateStmt->execute([$userId]);
+
+        $delStmt = $this->pdo->prepare(
+            "DELETE FROM email_verifications WHERE id = ?"
+        );
+
+        $delStmt->execute([$verification['id']]);
+
+        return true;
+    }
+
+    /** Get user by username without verification check. */
+    public function getUserByUsername(string $username): ?array {
+
+        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE username = ?");
+        $stmt->execute([trim($username)]);
+        return $stmt->fetch() ?: null;
+    }
+
+    /** Get user by email. */
+    public function getUserByEmail(string $email): ?array {
+
+        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE email = ?");
+        $stmt->execute([trim($email)]);
+        return $stmt->fetch() ?: null;
+    }
+
+    /** Get user by ID. */
+    public function getUserById(int $id): ?array {
+
+        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch() ?: null;
     }
 }
