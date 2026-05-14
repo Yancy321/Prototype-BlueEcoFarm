@@ -109,7 +109,7 @@ class AuthManager {
         ];
     }
 
-    /** Require login. */
+    /** Require login. Redirects distributors to their own dashboard. */
     public static function requireLogin(): void {
 
         if (session_status() === PHP_SESSION_NONE) {
@@ -117,12 +117,22 @@ class AuthManager {
         }
 
         if (empty($_SESSION['user'])) {
-
             header('Location: login.php');
             exit;
         }
     }
 
+    /** Require admin or staff role — blocks distributors from admin pages. */
+    public static function requireStaff(): void {
+
+        self::requireLogin();
+
+        $role = $_SESSION['user']['role'] ?? '';
+        if ($role === 'distributor') {
+            header('Location: distributor_dashboard.php');
+            exit;
+        }
+    }
     /** Require admin role. */
     public static function requireAdmin(): void {
 
@@ -155,18 +165,12 @@ class AuthManager {
 
         switch ($user['role']) {
 
-            case 'admin':
-                header('Location: index.php');
-                break;
-
-            case 'staff':
-                header('Location: staff_dashboard.php');
-                break;
-
             case 'distributor':
                 header('Location: distributor_dashboard.php');
                 break;
-                
+
+            case 'admin':
+            case 'staff':
             default:
                 header('Location: index.php');
                 break;

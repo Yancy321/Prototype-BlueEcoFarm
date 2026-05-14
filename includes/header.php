@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../src/AuthManager.php';
-AuthManager::requireLogin();
+AuthManager::requireStaff();
 $currentUser = AuthManager::currentUser();
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
@@ -181,6 +181,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <a href="distributors.php" class="nav-item <?= $currentPage === 'distributors.php' ? 'active' : '' ?>">
                     <span class="nav-dot"></span> Distributors
                 </a>
+                <a href="orders.php" class="nav-item <?= $currentPage === 'orders.php' ? 'active' : '' ?>">
+                    <span class="nav-dot"></span> Distributor Orders
+                </a>
             </div>
 
             <?php if ($currentUser['role'] === 'admin'): ?>
@@ -191,7 +194,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 </a>
             </div>
             <?php endif; ?>
-
         </nav>
     </aside>
 

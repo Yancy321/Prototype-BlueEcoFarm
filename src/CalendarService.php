@@ -28,60 +28,57 @@ class CalendarService
     public function getForecastEvents(int $year, int $month, ?int $productId = null): array
     {
         $products = $this->getProducts($productId);
-        $daysInMonth = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
-        $events = [];
+        $events   = [];
 
         foreach ($products as $product) {
             $pid  = (int) $product['id'];
             $name = $product['name'];
 
             try {
-                $forecast = $this->engine->predict($pid, $daysInMonth);
+                // Predict 1 period ahead (= next month's demand)
+                $forecast   = $this->engine->predict($pid, 1);
                 $dataPoints = count($forecast['historical']);
+                $qty        = (int) round($forecast['forecasts'][0]['predicted_qty']);
 
-                // Map each forecast period to a date within the requested month
-                foreach ($forecast['forecasts'] as $f) {
-                    $day = $this->periodToDay($f['period'], $daysInMonth);
-                    if ($day === null) {
-                        continue;
-                    }
-
-                    $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
-                    $qty  = (int) round($f['predicted_qty']);
-
-                    $events[] = [
-                        'id'    => "forecast-{$pid}-{$date}",
-                        'title' => "{$name}: " . number_format($qty, 0),
-                        'start' => $date,
-                        'extendedProps' => [
-                            'productId'    => $pid,
-                            'predictedQty' => $qty,
-                            'dataPoints'   => $dataPoints,
-                        ],
-                    ];
-                }
-            } catch (RuntimeException $e) {
-                // Insufficient data — return indicator event on the 1st of the month
+                // Place the event on the 1st of the requested month
                 $date = sprintf('%04d-%02d-01', $year, $month);
+
+                // Determine urgency level based on recent average
+                $recentAvg = $this->getRecentAverage($pid);
+                $level = 'normal';
+                if ($qty > $recentAvg * 1.2) $level = 'high';
+                elseif ($qty < $recentAvg * 0.8) $level = 'low';
+
                 $events[] = [
-                    'id'    => "forecast-{$pid}-{$date}-insufficient",
-                    'title' => "{$name}: Insufficient data",
+                    'id'    => "forecast-{$pid}-{$year}-{$month}",
+                    'title' => "{$name}: ~{$qty} units",
                     'start' => $date,
                     'extendedProps' => [
-                        'productId'       => $pid,
-                        'predictedQty'    => null,
-                        'dataPoints'      => $this->countDataPoints($pid),
+                        'productId'    => $pid,
+                        'productName'  => $name,
+                        'predictedQty' => $qty,
+                        'dataPoints'   => $dataPoints,
+                        'recentAvg'    => round($recentAvg),
+                        'level'        => $level,
+                    ],
+                ];
+            } catch (RuntimeException $e) {
+                $date = sprintf('%04d-%02d-01', $year, $month);
+                $events[] = [
+                    'id'    => "forecast-{$pid}-{$year}-{$month}-insufficient",
+                    'title' => "{$name}: Need more data",
+                    'start' => $date,
+                    'extendedProps' => [
+                        'productId'        => $pid,
+                        'productName'      => $name,
+                        'predictedQty'     => null,
+                        'dataPoints'       => $this->countDataPoints($pid),
                         'insufficientData' => true,
+                        'level'            => 'insufficient',
                     ],
                 ];
             }
         }
-
-        // Filter: only return events whose start date is within the requested year/month
-        $prefix = sprintf('%04d-%02d-', $year, $month);
-        $events = array_values(array_filter($events, function ($ev) use ($prefix) {
-            return strncmp($ev['start'], $prefix, strlen($prefix)) === 0;
-        }));
 
         return $events;
     }
@@ -89,6 +86,25 @@ class CalendarService
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Get average outgoing qty over the last 3 data points for a product.
+     */
+    private function getRecentAverage(int $productId): float
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT SUM(quantity) AS qty
+             FROM stock_records
+             WHERE product_id = ? AND record_type = 'outgoing' AND is_deleted = 0
+             GROUP BY transaction_date
+             ORDER BY transaction_date DESC
+             LIMIT 3"
+        );
+        $stmt->execute([$productId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($rows)) return 0;
+        return array_sum($rows) / count($rows);
+    }
 
     /**
      * Fetch all products or a single product.

@@ -9,17 +9,7 @@ require_once 'src/AuthManager.php';
 ========================= */
 
 if (!empty($_SESSION['user'])) {
-
-    if ($_SESSION['user']['role'] === 'staff') {
-
-        header('Location: staff_dashboard.php');
-
-    } else {
-
-        header('Location: index.php');
-    }
-
-    exit;
+    AuthManager::redirectByRole($_SESSION['user']);
 }
 
 $error = '';
