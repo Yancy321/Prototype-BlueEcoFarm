@@ -138,6 +138,7 @@ class CalendarService
 
     /**
      * Count historical data points for a product (for insufficient-data events).
+     * Counts distinct transaction dates since ForecastingEngine groups by date.
      */
     private function countDataPoints(int $productId): int
     {

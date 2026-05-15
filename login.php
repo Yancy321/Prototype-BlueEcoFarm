@@ -249,6 +249,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Login
         </button>
 
+        <div style="text-align:right;margin-top:0.6rem;">
+            <a href="forgot_password.php" style="font-size:.82rem;color:#2e7d32;text-decoration:none;font-weight:600;">
+                Forgot password?
+            </a>
+        </div>
+
     </form>
 
     <div class="register-link">

@@ -16,7 +16,7 @@ require_once __DIR__ . '/Database.php';
  */
 class ForecastingEngine {
 
-    private const MIN_DATA_POINTS  = 5;
+    private const MIN_DATA_POINTS  = 3;
     private const ALPHA            = 0.4;   // Exponential smoothing factor
     private const PROPHET_URL      = 'http://127.0.0.1:5001/forecast';
     private const PROPHET_TIMEOUT  = 10;    // seconds

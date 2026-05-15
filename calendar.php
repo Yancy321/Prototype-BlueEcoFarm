@@ -105,8 +105,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (props.insufficientData) {
                 document.getElementById('panelBody').innerHTML =
-                    `<p><strong>Data available:</strong> ${props.dataPoints ?? 0} / 5 needed</p>
-                     <p class="cal-panel-advice">Record more outgoing transactions to enable forecasting.</p>`;
+                    `<p><strong>Data available:</strong> ${props.dataPoints ?? 0} / 3 needed</p>
+                     <p class="cal-panel-advice">Need at least 3 outgoing transactions on different dates to enable forecasting.</p>`;
             } else {
                 const qty    = (props.predictedQty ?? 0).toLocaleString();
                 const avg    = (props.recentAvg ?? 0).toLocaleString();
