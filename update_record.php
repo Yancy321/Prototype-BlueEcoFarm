@@ -1,11 +1,10 @@
 <?php require_once 'includes/header.php'; ?>
 
-<h1 style="margin-bottom:1.5rem;color:#2e7d32;">Update Stock Record</h1>
+<h1 class="page-title">Update Stock Record</h1>
 
-<div class="card" style="max-width:520px;">
+<div class="card card-narrow-sm">
     <div id="alertBox"></div>
 
-    <!-- Step 1: look up record -->
     <div id="lookupSection">
         <div class="form-group">
             <label for="record_id_lookup">Record ID</label>
@@ -14,10 +13,9 @@
         <button class="btn btn-primary" onclick="loadRecord()">Load Record</button>
     </div>
 
-    <!-- Step 2: edit form (hidden until record loaded) -->
-    <form id="updateForm" style="display:none;margin-top:1.5rem;">
+    <form id="updateForm" class="update-form-hidden">
         <input type="hidden" id="record_id" name="record_id">
-        <div id="recordInfo" style="margin-bottom:1rem;padding:0.75rem;background:#e8f5e9;border-radius:6px;font-size:0.9rem;"></div>
+        <div id="recordInfo" class="record-info-box"></div>
         <div class="form-group">
             <label for="quantity">Quantity</label>
             <input type="number" id="quantity" name="quantity" min="1" required>
@@ -39,11 +37,9 @@ async function loadRecord() {
     const id = document.getElementById('record_id_lookup').value;
     if (!id) return;
     const alertBox = document.getElementById('alertBox');
-
-    // Fetch all records and find by id (simple approach)
     const res = await fetch(`api/stock.php?action=get_record&id=${id}`).then(r => r.json());
     if (res.error) {
-        alertBox.innerHTML = '<div class="alert alert-error">' + res.error + '</div>';
+        alertBox.innerHTML = `<div class="alert alert-error">${res.error}</div>`;
         return;
     }
     alertBox.innerHTML = '';
@@ -55,6 +51,7 @@ async function loadRecord() {
         `<strong>Product:</strong> ${res.product_name} &nbsp;|&nbsp;
          <strong>Warehouse:</strong> ${res.warehouse_id == 1 ? 'Farm' : 'Paranaque'} &nbsp;|&nbsp;
          <strong>Type:</strong> ${res.record_type}`;
+    document.getElementById('updateForm').classList.remove('update-form-hidden');
     document.getElementById('updateForm').style.display = 'block';
 }
 
@@ -67,16 +64,14 @@ document.getElementById('updateForm').addEventListener('submit', async function(
         date:      document.getElementById('date').value,
         notes:     document.getElementById('notes').value,
     };
-    const res = await fetch('api/stock.php?action=update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+    const res  = await fetch('api/stock.php?action=update', {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
     });
     const json = await res.json();
     if (json.success) {
         alertBox.innerHTML = '<div class="alert alert-success">Record updated successfully.</div>';
     } else {
-        alertBox.innerHTML = '<div class="alert alert-error">' + (json.error || 'Error') + '</div>';
+        alertBox.innerHTML = `<div class="alert alert-error">${json.error || 'Error'}</div>`;
     }
 });
 </script>

@@ -5,44 +5,38 @@
 <div id="alertBox"></div>
 
 <!-- Add Distributor -->
-<div class="card" style="max-width:640px;">
+<div class="card card-narrow">
     <h2>Add Distributor</h2>
-    <form id="formCreate" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:end;">
-        <div class="form-group" style="margin:0;">
-            <label>Name <span style="color:#c62828;">*</span></label>
+    <form id="formCreate" class="form-grid-2">
+        <div class="form-group form-group-inline">
+            <label>Name <span class="required-star">*</span></label>
             <input type="text" name="name" required placeholder="e.g. Juan Dela Cruz">
         </div>
-        <div class="form-group" style="margin:0;">
-            <label>Phone Number <span style="color:#c62828;">*</span></label>
+        <div class="form-group form-group-inline">
+            <label>Phone Number <span class="required-star">*</span></label>
             <input type="text" name="phone" required placeholder="e.g. 09171234567">
         </div>
-        <div class="form-group" style="margin:0;grid-column:1/-1;">
+        <div class="form-group form-group-inline form-full">
             <label>Notes (optional)</label>
             <input type="text" name="notes" placeholder="e.g. Handles Luzon area">
         </div>
-        <div style="grid-column:1/-1;">
-            <button type="submit" class="btn btn-primary" style="width:100%;">+ Add Distributor</button>
+        <div class="form-full">
+            <button type="submit" class="btn btn-primary btn-full">+ Add Distributor</button>
         </div>
     </form>
-    <div id="createError" style="margin-top:0.75rem;"></div>
+    <div id="createError"></div>
 </div>
 
 <!-- Distributors Table -->
 <div class="card">
     <h2>Distributor List</h2>
-    <p style="font-size:0.88rem;color:#666;margin-bottom:1rem;">
-        Active distributors will receive an SMS notification whenever new stock arrives.
-    </p>
+    <p class="text-muted-sm">Active distributors will receive an SMS notification whenever new stock arrives.</p>
     <div class="table-wrap">
         <table id="distributorsTable">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Phone</th>
-                    <th>Notes</th>
-                    <th>Active</th>
-                    <th>Actions</th>
+                    <th>ID</th><th>Name</th><th>Phone</th>
+                    <th>Notes</th><th>Active</th><th>Actions</th>
                 </tr>
             </thead>
             <tbody><tr><td colspan="6">Loading...</td></tr></tbody>
@@ -51,8 +45,8 @@
 </div>
 
 <!-- Edit Modal -->
-<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:center;justify-content:center;">
-    <div class="card" style="width:480px;max-width:95vw;margin:0;">
+<div id="editModal" class="modal-overlay">
+    <div class="card modal-card" style="width:480px;">
         <h2>Edit Distributor</h2>
         <form id="formEdit">
             <input type="hidden" id="editId">
@@ -75,10 +69,10 @@
                     <option value="0">No</option>
                 </select>
             </div>
-            <div id="editError" style="margin-bottom:0.75rem;"></div>
-            <div style="display:flex;gap:0.75rem;">
-                <button type="submit" class="btn btn-primary" style="flex:1;">Save</button>
-                <button type="button" class="btn btn-secondary" style="flex:1;" onclick="closeModal()">Cancel</button>
+            <div id="editError"></div>
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
             </div>
         </form>
     </div>
@@ -98,12 +92,10 @@ async function loadDistributors() {
     const res  = await fetch('api/distributors.php?action=list');
     const data = await res.json();
     const tbody = document.querySelector('#distributorsTable tbody');
-
     if (!Array.isArray(data) || !data.length) {
-        tbody.innerHTML = '<tr><td colspan="6" style="color:#888;">No distributors yet. Add one above.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="cell-sub">No distributors yet. Add one above.</td></tr>';
         return;
     }
-
     tbody.innerHTML = data.map(d => `
         <tr>
             <td>${d.id}</td>
@@ -114,10 +106,9 @@ async function loadDistributors() {
                 ? '<span class="badge badge-success">Yes</span>'
                 : '<span class="badge badge-danger">No</span>'}</td>
             <td>
-                <button class="btn btn-primary" style="padding:0.3rem 0.65rem;font-size:0.8rem;margin-right:0.3rem;"
+                <button class="btn btn-primary btn-sm" style="margin-right:0.3rem;"
                     onclick='openEdit(${JSON.stringify(d).replace(/"/g,"&quot;")})'>Edit</button>
-                <button class="btn btn-danger" style="padding:0.3rem 0.65rem;font-size:0.8rem;"
-                    onclick="deleteDistributor(${d.id})">Delete</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteDistributor(${d.id})">Delete</button>
             </td>
         </tr>
     `).join('');
@@ -128,18 +119,14 @@ document.getElementById('formCreate').addEventListener('submit', async function(
     document.getElementById('createError').innerHTML = '';
     const data = Object.fromEntries(new FormData(e.target).entries());
     const res  = await fetch('api/distributors.php?action=create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
     });
     const json = await res.json();
     if (json.success) {
         showAlert('Distributor added successfully.');
-        e.target.reset();
-        loadDistributors();
+        e.target.reset(); loadDistributors();
     } else {
-        document.getElementById('createError').innerHTML =
-            `<div class="alert alert-error">${escHtml(json.error)}</div>`;
+        document.getElementById('createError').innerHTML = `<div class="alert alert-error">${escHtml(json.error)}</div>`;
     }
 });
 
@@ -150,11 +137,9 @@ function openEdit(d) {
     document.getElementById('editNotes').value  = d.notes || '';
     document.getElementById('editActive').value = d.is_active;
     document.getElementById('editError').innerHTML = '';
-    document.getElementById('editModal').style.display = 'flex';
+    document.getElementById('editModal').classList.add('open');
 }
-function closeModal() {
-    document.getElementById('editModal').style.display = 'none';
-}
+function closeModal() { document.getElementById('editModal').classList.remove('open'); }
 
 document.getElementById('formEdit').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -166,27 +151,17 @@ document.getElementById('formEdit').addEventListener('submit', async function(e)
         is_active: document.getElementById('editActive').value,
     };
     const res  = await fetch('api/distributors.php?action=update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
     });
     const json = await res.json();
-    if (json.success) {
-        closeModal();
-        showAlert('Distributor updated.');
-        loadDistributors();
-    } else {
-        document.getElementById('editError').innerHTML =
-            `<div class="alert alert-error">${escHtml(json.error)}</div>`;
-    }
+    if (json.success) { closeModal(); showAlert('Distributor updated.'); loadDistributors(); }
+    else document.getElementById('editError').innerHTML = `<div class="alert alert-error">${escHtml(json.error)}</div>`;
 });
 
 async function deleteDistributor(id) {
     if (!confirm('Delete this distributor?')) return;
     const res  = await fetch('api/distributors.php?action=delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id})
     });
     const json = await res.json();
     if (json.success) { showAlert('Distributor deleted.'); loadDistributors(); }

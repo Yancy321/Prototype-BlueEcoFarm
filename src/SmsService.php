@@ -76,8 +76,12 @@ class SmsService
         $warehouseName = $this->resolveWarehouseName($warehouseId);
         $message       = $this->composeDistributorMessage($productName, $warehouseName, $quantity);
 
+        // phone column preferred; fall back to contact_number for older rows
         $stmt = $this->db->prepare(
-            'SELECT id, phone FROM distributors WHERE is_active = 1'
+            'SELECT id, COALESCE(NULLIF(phone, ""), contact_number) AS phone
+             FROM distributors
+             WHERE is_active = 1
+               AND COALESCE(NULLIF(phone, ""), contact_number) IS NOT NULL'
         );
         $stmt->execute();
         $distributors = $stmt->fetchAll();

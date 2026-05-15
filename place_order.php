@@ -159,15 +159,15 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
         <!-- FORM -->
         <div class="panel">
             <div class="panel-header">
-                <span>🛒</span>
+                <span></span>
                 <h4>New Advance Order</h4>
             </div>
             <div class="panel-body">
                 <?php if ($success): ?>
-                <div class="alert alert-success">✅ <?= htmlspecialchars($success) ?></div>
+                <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
                 <?php endif; ?>
                 <?php if ($error): ?>
-                <div class="alert alert-error">⚠️ <?= htmlspecialchars($error) ?></div>
+                <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
                 <?php endif; ?>
 
                 <div class="info-card">
@@ -215,7 +215,7 @@ select.form-control { cursor: pointer; background-image: url("data:image/svg+xml
         <!-- AVAILABILITY SIDEBAR -->
         <div class="panel">
             <div class="panel-header">
-                <span>🟢</span>
+                <span></span>
                 <h4>Current Availability</h4>
             </div>
             <?php foreach ($productRows as $p):
@@ -241,13 +241,13 @@ function updateStockHint(sel) {
     if (!opt.value) { hint.textContent = 'Select a product to see current availability.'; hint.style.color = ''; return; }
     const stock = parseInt(opt.dataset.stock, 10);
     if (stock <= 0) {
-        hint.textContent = '⚠️ Out of stock. You can still place an advance order.';
+        hint.textContent = 'Out of stock. You can still place an advance order.';
         hint.style.color = '#dc2626';
     } else if (stock <= 10) {
-        hint.textContent = `⚡ Low stock — only ${stock} units available.`;
+        hint.textContent = `Low stock — only ${stock} units available.`;
         hint.style.color = '#b45309';
     } else {
-        hint.textContent = `✅ ${stock} units currently available.`;
+        hint.textContent = `${stock} units currently available.`;
         hint.style.color = '#2d5a27';
     }
 }

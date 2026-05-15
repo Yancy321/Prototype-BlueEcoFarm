@@ -16,25 +16,41 @@ try {
     switch ($action) {
 
         case 'list': {
-            $stmt = $pdo->query("SELECT * FROM distributors ORDER BY name ASC");
+            // Return all distributors with a resolved display name and phone
+            $stmt = $pdo->query("
+                SELECT
+                    d.id,
+                    COALESCE(d.business_name, u.full_name, 'Unknown') AS name,
+                    COALESCE(NULLIF(d.phone,''), d.contact_number)     AS phone,
+                    d.notes,
+                    d.is_active,
+                    d.status,
+                    d.tier,
+                    d.region
+                FROM distributors d
+                LEFT JOIN users u ON u.id = d.user_id
+                ORDER BY name ASC
+            ");
             echo json_encode($stmt->fetchAll());
             break;
         }
 
         case 'create': {
-            $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
-            $name  = trim($data['name'] ?? '');
+            // Admin manually adds a distributor (no user account needed)
+            $data  = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+            $name  = trim($data['name']  ?? '');
             $phone = trim($data['phone'] ?? '');
-            if ($name === '')  jsonError("Field name is required");
+            if ($name  === '') jsonError("Field name is required");
             if ($phone === '') jsonError("Field phone is required");
 
-            // Normalize Philippine number
             $phone = normalizePhone($phone);
 
+            // Insert with a placeholder user_id = 0 (no linked account)
             $stmt = $pdo->prepare(
-                "INSERT INTO distributors (name, phone, notes, is_active) VALUES (?, ?, ?, ?)"
+                "INSERT INTO distributors (user_id, business_name, phone, contact_number, notes, is_active, status, tier)
+                 VALUES (0, ?, ?, ?, ?, 1, 'approved', 'Silver')"
             );
-            $stmt->execute([$name, $phone, $data['notes'] ?? null, 1]);
+            $stmt->execute([$name, $phone, $phone, $data['notes'] ?? null]);
             echo json_encode(['success' => true, 'id' => (int)$pdo->lastInsertId()]);
             break;
         }
@@ -45,10 +61,27 @@ try {
             if (!$id) jsonError("Field id is required");
 
             $fields = []; $params = [];
-            if (isset($data['name'])      && $data['name'] !== '')  { $fields[] = 'name = ?';      $params[] = trim($data['name']); }
-            if (isset($data['phone'])     && $data['phone'] !== '') { $fields[] = 'phone = ?';     $params[] = normalizePhone(trim($data['phone'])); }
-            if (isset($data['notes']))                               { $fields[] = 'notes = ?';     $params[] = $data['notes']; }
-            if (isset($data['is_active']))                           { $fields[] = 'is_active = ?'; $params[] = (int)(bool)$data['is_active']; }
+            if (isset($data['name'])  && $data['name'] !== '')  {
+                $fields[] = 'business_name = ?';
+                $params[] = trim($data['name']);
+            }
+            if (isset($data['phone']) && $data['phone'] !== '') {
+                $normalized = normalizePhone(trim($data['phone']));
+                $fields[] = 'phone = ?';          $params[] = $normalized;
+                $fields[] = 'contact_number = ?'; $params[] = $normalized;
+            }
+            if (isset($data['notes'])) {
+                $fields[] = 'notes = ?';
+                $params[] = $data['notes'];
+            }
+            if (isset($data['is_active'])) {
+                $isActive = (int)(bool)$data['is_active'];
+                $fields[] = 'is_active = ?';
+                $params[] = $isActive;
+                // Keep status in sync
+                $fields[] = 'status = ?';
+                $params[] = $isActive ? 'approved' : 'pending';
+            }
 
             if (empty($fields)) jsonError("No fields to update");
             $params[] = $id;

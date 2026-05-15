@@ -1,3 +1,12 @@
+:root {
+    --primary-green: #2d5a27;
+    --light-bg:      #f8faf9;
+    --border-color:  #e5e7eb;
+    --text-main:     #1f2937;
+    --text-muted:    #6b7280;
+    --danger-red:    #d32f2f;
+}
+
 .sidebar{
     width:260px;
     height:100vh;

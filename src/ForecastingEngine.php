@@ -3,26 +3,42 @@
 require_once __DIR__ . '/Database.php';
 
 /**
- * ForecastingEngine — hybrid forecasting using:
- * 1. Weighted Moving Average (WMA) — gives more weight to recent data
- * 2. Exponential Smoothing (ES)    — smooths out noise
- * 3. Linear Regression (OLS)       — captures long-term trend
+ * ForecastingEngine
+ * -----------------
+ * Primary:  Facebook Prophet via a local Python microservice (port 5001).
+ *           Prophet handles seasonality, trend changes, and confidence intervals.
  *
- * Final prediction = weighted blend of all three methods.
- * More recent data = higher accuracy.
+ * Fallback: Hybrid statistical model (WMA + Exponential Smoothing + OLS)
+ *           used automatically when the Prophet service is unreachable.
+ *
+ * To start the Prophet service:
+ *   cd prophet_service && python prophet_service.py
  */
 class ForecastingEngine {
 
-    private const MIN_DATA_POINTS = 5;
-    private const ALPHA = 0.4; // Exponential smoothing factor (0–1, higher = more weight on recent)
+    private const MIN_DATA_POINTS  = 5;
+    private const ALPHA            = 0.4;   // Exponential smoothing factor
+    private const PROPHET_URL      = 'http://127.0.0.1:5001/forecast';
+    private const PROPHET_TIMEOUT  = 10;    // seconds
+
     private PDO $pdo;
 
     public function __construct() {
         $this->pdo = Database::getInstance();
     }
 
+    // =========================================================================
+    // Public API
+    // =========================================================================
+
     /**
      * Predict outgoing stock for a product N periods ahead.
+     *
+     * Returns an array with keys:
+     *   product_id, historical, forecasts, slope, intercept, method
+     *
+     * 'forecasts' items always contain: period, predicted_qty
+     * Prophet forecasts additionally contain: lower, upper, forecast_date
      *
      * @throws RuntimeException if fewer than MIN_DATA_POINTS exist
      */
@@ -38,32 +54,91 @@ class ForecastingEngine {
             );
         }
 
+        // Try Prophet first
+        $prophetResult = $this->callProphet($data, $periodsAhead);
+        if ($prophetResult !== null) {
+            return array_merge([
+                'product_id' => $productId,
+                'historical' => $data,
+                'slope'      => null,
+                'intercept'  => null,
+            ], $prophetResult);
+        }
+
+        // Fallback: hybrid statistical model
+        return $this->hybridPredict($productId, $data, $periodsAhead);
+    }
+
+    // =========================================================================
+    // Prophet (primary)
+    // =========================================================================
+
+    /**
+     * Call the Python Prophet microservice.
+     * Returns the decoded response array on success, null on any failure.
+     */
+    private function callProphet(array $data, int $periodsAhead): ?array {
+        // Build the payload Prophet expects
+        $historical = array_map(fn($d) => [
+            'date' => $d['date'],
+            'qty'  => $d['y'],
+        ], $data);
+
+        $payload = json_encode([
+            'historical' => $historical,
+            'periods'    => $periodsAhead,
+        ]);
+
+        $ch = curl_init(self::PROPHET_URL);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_TIMEOUT        => self::PROPHET_TIMEOUT,
+            CURLOPT_CONNECTTIMEOUT => 3,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlErr || $httpCode !== 200 || !$response) {
+            error_log("Prophet service unavailable ({$httpCode}): {$curlErr}. Falling back to hybrid model.");
+            return null;
+        }
+
+        $decoded = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE || empty($decoded['forecasts'])) {
+            error_log("Prophet returned invalid JSON. Falling back to hybrid model.");
+            return null;
+        }
+
+        return $decoded; // contains 'forecasts' and 'method' => 'prophet'
+    }
+
+    // =========================================================================
+    // Hybrid fallback (WMA + ES + OLS)
+    // =========================================================================
+
+    private function hybridPredict(int $productId, array $data, int $periodsAhead): array {
         $yValues = array_column($data, 'y');
 
-        // Method 1: Weighted Moving Average (window = min(6, count))
         $wmaBase = $this->weightedMovingAverage($yValues);
-
-        // Method 2: Exponential Smoothing
         $esBase  = $this->exponentialSmoothing($yValues);
-
-        // Method 3: Linear Regression slope for trend
         [$slope, $intercept] = $this->linearRegression($data);
         $lastX = count($data) - 1;
 
         $forecasts = [];
         for ($i = 1; $i <= $periodsAhead; $i++) {
-            $x = $lastX + $i;
-
-            // OLS prediction
+            $x       = $lastX + $i;
             $olsPred = $slope * $x + $intercept;
 
             // Blend: 40% WMA, 35% ES, 25% OLS
-            // WMA and ES are level-based; OLS adds trend direction
-            $blended = (0.40 * $wmaBase) + (0.35 * $esBase) + (0.25 * $olsPred);
-
-            // Apply trend delta for periods beyond 1
-            $trendDelta = $slope * ($i - 1);
-            $predicted  = max(0, round($blended + $trendDelta, 2));
+            $blended     = (0.40 * $wmaBase) + (0.35 * $esBase) + (0.25 * $olsPred);
+            $trendDelta  = $slope * ($i - 1);
+            $predicted   = max(0, round($blended + $trendDelta, 2));
 
             $forecasts[] = [
                 'period'        => $x,
@@ -81,9 +156,9 @@ class ForecastingEngine {
         ];
     }
 
-    // -------------------------------------------------------------------------
-    // Forecasting methods
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Statistical helpers
+    // =========================================================================
 
     /**
      * Weighted Moving Average — recent values get higher weights.
@@ -97,7 +172,7 @@ class ForecastingEngine {
         $weightSum = 0;
         $valueSum  = 0;
         for ($i = 0; $i < $n; $i++) {
-            $weight     = $i + 1; // weight 1..n
+            $weight     = $i + 1;
             $valueSum  += $slice[$i] * $weight;
             $weightSum += $weight;
         }
@@ -106,8 +181,7 @@ class ForecastingEngine {
     }
 
     /**
-     * Exponential Smoothing — smooths noise, emphasises recent trend.
-     * S_t = alpha * y_t + (1 - alpha) * S_{t-1}
+     * Exponential Smoothing — S_t = alpha * y_t + (1 - alpha) * S_{t-1}
      */
     private function exponentialSmoothing(array $values): float {
         $alpha    = self::ALPHA;
@@ -148,9 +222,9 @@ class ForecastingEngine {
         return [$slope, $intercept];
     }
 
-    // -------------------------------------------------------------------------
+    // =========================================================================
     // Data layer
-    // -------------------------------------------------------------------------
+    // =========================================================================
 
     /**
      * Fetch historical outgoing stock aggregated by date, ordered ASC.

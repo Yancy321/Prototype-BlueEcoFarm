@@ -52,10 +52,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmtUser->close();
 
                 $stmtDist = $conn->prepare("
-                    INSERT INTO distributors (user_id, business_name, tier, status, region, contact_number)
-                    VALUES (?, ?, 'Silver', 'pending', ?, ?)
+                    INSERT INTO distributors (user_id, business_name, tier, status, region, contact_number, phone, is_active)
+                    VALUES (?, ?, 'Silver', 'pending', ?, ?, ?, 0)
                 ");
-                $stmtDist->bind_param("isss", $newUserId, $businessName, $region, $contactNumber);
+                $stmtDist->bind_param("issss", $newUserId, $businessName, $region, $contactNumber, $contactNumber);
                 $stmtDist->execute();
                 $stmtDist->close();
 
@@ -356,7 +356,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="card">
 
     <div class="brand">
-        <h1>🌿 Blue Eco Farm</h1>
+        <h1>Blue Eco Farm</h1>
         <p>Distributor Registration</p>
     </div>
 

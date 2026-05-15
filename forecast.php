@@ -8,9 +8,9 @@ require_once 'includes/header.php';
 <h1 class="page-title">Demand Forecast</h1>
 
 <!-- Controls -->
-<div class="card" style="max-width:560px;margin-bottom:1.5rem;">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:end;">
-        <div class="form-group" style="margin:0;">
+<div class="forecast-controls-card">
+    <div class="forecast-controls-grid">
+        <div class="form-group">
             <label for="product_id">Product</label>
             <select id="product_id">
                 <option value="">— Select product —</option>
@@ -19,12 +19,12 @@ require_once 'includes/header.php';
                 <?php endforeach; ?>
             </select>
         </div>
-        <div class="form-group" style="margin:0;">
-            <label for="periods">Periods ahead <span style="font-weight:400;color:#888;font-size:0.78rem;">(months)</span></label>
+        <div class="form-group">
+            <label for="periods">Periods ahead <span class="label-hint">(months)</span></label>
             <input type="number" id="periods" value="3" min="1" max="12">
         </div>
     </div>
-    <button class="btn btn-primary" onclick="loadForecast()" style="width:100%;margin-top:1rem;padding:0.75rem;">
+    <button class="btn btn-primary forecast-btn" onclick="loadForecast()">
         Generate Forecast
     </button>
 </div>
@@ -32,23 +32,29 @@ require_once 'includes/header.php';
 <div id="alertBox"></div>
 
 <!-- Results -->
-<div id="forecastCard" style="display:none;">
+<div id="forecastCard" class="forecast-hidden">
+
+    <!-- Model badge + title row -->
+    <div class="forecast-title-row">
+        <h2 id="forecastTitle" class="forecast-title"></h2>
+        <span id="modelBadge" class="model-badge"></span>
+    </div>
 
     <!-- Summary cards -->
-    <div id="summaryCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem;"></div>
+    <div id="summaryCards" class="forecast-summary-grid"></div>
 
     <!-- Chart -->
-    <div class="card" style="margin-bottom:1.5rem;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
-            <h2 id="forecastTitle" style="margin:0;font-size:1rem;"></h2>
-            <div style="display:flex;gap:1.25rem;font-size:0.8rem;color:#555;">
-                <span style="display:flex;align-items:center;gap:5px;">
-                    <span style="width:18px;height:3px;background:#2e7d32;display:inline-block;border-radius:2px;"></span>
-                    Actual
+    <div class="card forecast-chart-card">
+        <div class="forecast-chart-header">
+            <div class="forecast-legend">
+                <span class="legend-item">
+                    <span class="legend-line legend-line--actual"></span>Actual
                 </span>
-                <span style="display:flex;align-items:center;gap:5px;">
-                    <span style="width:18px;height:3px;background:#e65100;display:inline-block;border-radius:2px;border-top:2px dashed #e65100;"></span>
-                    Forecast
+                <span class="legend-item">
+                    <span class="legend-line legend-line--forecast"></span>Forecast
+                </span>
+                <span class="legend-item legend-item--prophet" id="legendConfidence">
+                    <span class="legend-band"></span>80% Confidence
                 </span>
             </div>
         </div>
@@ -57,7 +63,7 @@ require_once 'includes/header.php';
 
     <!-- Forecast table -->
     <div class="card">
-        <h2 style="margin-bottom:1rem;font-size:1rem;">Monthly Breakdown</h2>
+        <h2 class="forecast-table-title">Monthly Breakdown</h2>
         <div id="forecastTable"></div>
     </div>
 
@@ -83,13 +89,27 @@ async function loadForecast() {
 
     if (json.error) {
         alertBox.innerHTML = `<div class="alert alert-error">${json.error}</div>`;
-        document.getElementById('forecastCard').style.display = 'none';
+        document.getElementById('forecastCard').classList.add('forecast-hidden');
         return;
     }
 
-    const productName = document.getElementById('product_id').selectedOptions[0].text;
-    document.getElementById('forecastTitle').textContent = `${productName} — ${periods} month forecast`;
-    document.getElementById('forecastCard').style.display = 'block';
+    const isProphet     = json.method === 'prophet';
+    const productName   = document.getElementById('product_id').selectedOptions[0].text;
+    const forecastCard  = document.getElementById('forecastCard');
+    const modelBadge    = document.getElementById('modelBadge');
+    const legendConf    = document.getElementById('legendConfidence');
+
+    document.getElementById('forecastTitle').textContent =
+        `${productName} — ${periods} month forecast`;
+
+    // Model badge
+    modelBadge.textContent  = isProphet ? '🔮 Facebook Prophet' : '📐 Hybrid Statistical';
+    modelBadge.className    = 'model-badge ' + (isProphet ? 'model-badge--prophet' : 'model-badge--hybrid');
+
+    // Show/hide confidence legend
+    legendConf.style.display = isProphet ? '' : 'none';
+
+    forecastCard.classList.remove('forecast-hidden');
 
     const forecastQtys = json.forecasts.map(f => f.predicted_qty);
     const avgForecast  = forecastQtys.reduce((a, b) => a + b, 0) / forecastQtys.length;
@@ -101,67 +121,97 @@ async function loadForecast() {
 
     // Summary cards
     document.getElementById('summaryCards').innerHTML = `
-        <div class="card" style="text-align:center;padding:1rem;">
-            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:0.3rem;">Data Points</div>
-            <div style="font-size:1.8rem;font-weight:700;color:#1b5e20;">${json.historical.length}</div>
-            <div style="font-size:0.75rem;color:#aaa;">records used</div>
+        <div class="card forecast-stat-card">
+            <div class="forecast-stat-label">Data Points</div>
+            <div class="forecast-stat-value forecast-stat-value--green">${json.historical.length}</div>
+            <div class="forecast-stat-sub">records used</div>
         </div>
-        <div class="card" style="text-align:center;padding:1rem;">
-            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:0.3rem;">Avg Forecast</div>
-            <div style="font-size:1.8rem;font-weight:700;color:#e65100;">${Math.round(avgForecast)}</div>
-            <div style="font-size:0.75rem;color:#aaa;">units / month</div>
+        <div class="card forecast-stat-card">
+            <div class="forecast-stat-label">Avg Forecast</div>
+            <div class="forecast-stat-value forecast-stat-value--orange">${Math.round(avgForecast)}</div>
+            <div class="forecast-stat-sub">units / month</div>
         </div>
-        <div class="card" style="text-align:center;padding:1rem;">
-            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:0.3rem;">Peak Month</div>
-            <div style="font-size:1.8rem;font-weight:700;color:#1565c0;">${Math.round(maxForecast)}</div>
-            <div style="font-size:0.75rem;color:#aaa;">units (highest)</div>
+        <div class="card forecast-stat-card">
+            <div class="forecast-stat-label">Peak Month</div>
+            <div class="forecast-stat-value forecast-stat-value--blue">${Math.round(maxForecast)}</div>
+            <div class="forecast-stat-sub">units (highest)</div>
         </div>
-        <div class="card" style="text-align:center;padding:1rem;">
-            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:0.3rem;">Trend</div>
-            <div style="font-size:1.3rem;font-weight:700;color:${trendColor};">${trendLabel}</div>
-            <div style="font-size:0.75rem;color:#aaa;">demand change</div>
+        <div class="card forecast-stat-card">
+            <div class="forecast-stat-label">Trend</div>
+            <div class="forecast-stat-value" style="font-size:1.3rem;color:${trendColor};">${trendLabel}</div>
+            <div class="forecast-stat-sub">demand change</div>
         </div>
     `;
 
-    // Chart
+    // Chart datasets
     const histLabels     = json.historical.map(d => d.date);
     const histData       = json.historical.map(d => d.y);
-    const forecastLabels = json.forecasts.map((_, i) => `Month +${i + 1}`);
+    const forecastLabels = json.forecasts.map((f, i) =>
+        f.forecast_date ? f.forecast_date : `Month +${i + 1}`
+    );
     const forecastData   = json.forecasts.map(d => Math.round(d.predicted_qty));
     const allLabels      = [...histLabels, ...forecastLabels];
     const histFull       = [...histData, ...new Array(forecastLabels.length).fill(null)];
     const forecastFull   = [...new Array(histLabels.length).fill(null), ...forecastData];
 
+    const datasets = [
+        {
+            label: 'Actual outgoing',
+            data: histFull,
+            borderColor: '#2e7d32',
+            backgroundColor: 'rgba(46,125,50,0.07)',
+            tension: 0.3,
+            pointRadius: 4,
+            spanGaps: false,
+            fill: true,
+        },
+        {
+            label: 'Forecast',
+            data: forecastFull,
+            borderColor: '#e65100',
+            backgroundColor: 'rgba(230,81,0,0.07)',
+            borderDash: [6, 4],
+            tension: 0.3,
+            pointRadius: 5,
+            pointStyle: 'rectRot',
+            spanGaps: false,
+            fill: true,
+        },
+    ];
+
+    // Prophet confidence interval bands
+    if (isProphet && json.forecasts[0]?.upper !== undefined) {
+        const upperFull = [...new Array(histLabels.length).fill(null),
+                           ...json.forecasts.map(f => Math.round(f.upper))];
+        const lowerFull = [...new Array(histLabels.length).fill(null),
+                           ...json.forecasts.map(f => Math.round(f.lower))];
+
+        datasets.push({
+            label: 'Upper bound',
+            data: upperFull,
+            borderColor: 'rgba(230,81,0,0.25)',
+            backgroundColor: 'rgba(230,81,0,0.08)',
+            borderDash: [3, 3],
+            pointRadius: 0,
+            fill: '+1',
+            spanGaps: false,
+        });
+        datasets.push({
+            label: 'Lower bound',
+            data: lowerFull,
+            borderColor: 'rgba(230,81,0,0.25)',
+            backgroundColor: 'rgba(230,81,0,0.08)',
+            borderDash: [3, 3],
+            pointRadius: 0,
+            fill: false,
+            spanGaps: false,
+        });
+    }
+
     if (forecastChart) forecastChart.destroy();
     forecastChart = new Chart(document.getElementById('forecastChart'), {
         type: 'line',
-        data: {
-            labels: allLabels,
-            datasets: [
-                {
-                    label: 'Actual outgoing',
-                    data: histFull,
-                    borderColor: '#2e7d32',
-                    backgroundColor: 'rgba(46,125,50,0.07)',
-                    tension: 0.3,
-                    pointRadius: 4,
-                    spanGaps: false,
-                    fill: true,
-                },
-                {
-                    label: 'Forecast',
-                    data: forecastFull,
-                    borderColor: '#e65100',
-                    backgroundColor: 'rgba(230,81,0,0.07)',
-                    borderDash: [6, 4],
-                    tension: 0.3,
-                    pointRadius: 5,
-                    pointStyle: 'rectRot',
-                    spanGaps: false,
-                    fill: true,
-                },
-            ],
-        },
+        data: { labels: allLabels, datasets },
         options: {
             responsive: true,
             plugins: {
@@ -185,27 +235,34 @@ async function loadForecast() {
             <thead><tr>
                 <th>Period</th>
                 <th>Predicted Demand</th>
+                ${isProphet ? '<th>80% Confidence Range</th>' : ''}
                 <th>vs Historical Avg</th>
                 <th>Action</th>
             </tr></thead><tbody>`;
 
     json.forecasts.forEach((f, i) => {
-        const qty  = Math.round(f.predicted_qty);
-        const diff = qty - Math.round(histAvg);
+        const qty      = Math.round(f.predicted_qty);
+        const diff     = qty - Math.round(histAvg);
+        const label    = f.forecast_date ? f.forecast_date : `Month +${i + 1}`;
         const diffLabel = diff > 0
-            ? `<span style="color:#c62828;font-weight:600;">+${diff} above avg</span>`
+            ? `<span class="forecast-diff forecast-diff--high">+${diff} above avg</span>`
             : diff < 0
-            ? `<span style="color:#1565c0;font-weight:600;">${diff} below avg</span>`
-            : `<span style="color:#2e7d32;">On average</span>`;
+            ? `<span class="forecast-diff forecast-diff--low">${diff} below avg</span>`
+            : `<span class="forecast-diff forecast-diff--avg">On average</span>`;
         const action = qty > histAvg * 1.15
-            ? '<span style="color:#c62828;font-weight:600;">Restock early</span>'
+            ? '<span class="forecast-action forecast-action--restock">Restock early</span>'
             : qty < histAvg * 0.85
-            ? '<span style="color:#1565c0;">Normal restock</span>'
-            : '<span style="color:#2e7d32;">On schedule</span>';
+            ? '<span class="forecast-action forecast-action--normal">Normal restock</span>'
+            : '<span class="forecast-action forecast-action--schedule">On schedule</span>';
+
+        const confidenceCell = isProphet && f.lower !== undefined
+            ? `<td class="forecast-confidence">${Math.round(f.lower)} – ${Math.round(f.upper)} units</td>`
+            : '';
 
         tableHtml += `<tr>
-            <td><strong>Month +${i + 1}</strong></td>
-            <td style="font-weight:700;color:#e65100;font-size:1rem;">${qty.toLocaleString()} units</td>
+            <td><strong>${label}</strong></td>
+            <td class="forecast-qty">${qty.toLocaleString()} units</td>
+            ${confidenceCell}
             <td>${diffLabel}</td>
             <td>${action}</td>
         </tr>`;

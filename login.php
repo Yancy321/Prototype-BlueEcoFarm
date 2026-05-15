@@ -188,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="login-box">
 
     <div class="brand">
-        <h1>🌿 Blue Eco Farm</h1>
+        <h1>Blue Eco Farm</h1>
         <p>Inventory &amp; Forecasting System</p>
     </div>
 

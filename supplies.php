@@ -1,595 +1,186 @@
 <?php
 require_once 'src/AuthManager.php';
-AuthManager::requireLogin();
+AuthManager::requireStaff();
+require_once 'src/Database.php';
+$pdo = Database::getInstance();
+$currentPage = 'supplies.php';
 
-$conn = new mysqli("localhost", "root", "", "blue_eco_farm");
+$packagingCount  = (int)$pdo->query("SELECT COUNT(*) FROM inventory_supplies WHERE category = 'Packaging Material'")->fetchColumn();
+$productionCount = (int)$pdo->query("SELECT COUNT(*) FROM inventory_supplies WHERE category = 'Production Essential'")->fetchColumn();
+$lowStockCount   = (int)$pdo->query("SELECT COUNT(*) FROM inventory_supplies WHERE current_stock_level <= reorder_point")->fetchColumn();
+$production      = $pdo->query("SELECT * FROM inventory_supplies WHERE category = 'Production Essential' ORDER BY item_name ASC")->fetchAll();
 
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
-
-$currentPage = 'supplies';
-
-/* =========================
-    SUMMARY COUNTS
-========================= */
-
-$packagingCount = $conn->query("
-    SELECT COUNT(*) as total FROM inventory_supplies 
-    WHERE category = 'Packaging Material'
-")->fetch_assoc()['total'] ?? 0;
-
-$productionCount = $conn->query("
-    SELECT COUNT(*) as total FROM inventory_supplies 
-    WHERE category = 'Production Essential'
-")->fetch_assoc()['total'] ?? 0;
-
-$lowStockCount = $conn->query("
-    SELECT COUNT(*) as total FROM inventory_supplies 
-    WHERE current_stock_level <= reorder_point
-")->fetch_assoc()['total'] ?? 0;
-
-/* =========================
-    FETCH SUPPLIES BY CATEGORY
-========================= */
-
-$production = $conn->query("
-    SELECT * FROM inventory_supplies 
-    WHERE category = 'Production Essential'
-    ORDER BY FIELD(item_name,
-        'Hand gloves',
-        'Facemask',
-        'Hairnets',
-        'Alcohol',
-        'Aprons',
-        'Ballpen',
-        'Markers',
-        'Tape (General)',
-        'Bond paper',
-        'First aid kit'
-    )
-");
-
-// Packaging sub-sections
 $packagingGroups = [
-    'Bags & Wraps' => [
-        'icon' => '🛍️',
-        'color' => '#fff3e0',
-        'items' => ['Frozen bags', 'Plastic rolls', 'Shrink wrap roll', 'Ziplock bag']
-    ],
-    'Labels & Print' => [
-        'icon' => '🏷️',
-        'color' => '#e3f2fd',
-        'items' => ['Sticker (Light Green)', 'Sticker (Blue Green)', 'Sticker (Green)', 'Brochure']
-    ],
-    'Pouches & Boxes' => [
-        'icon' => '📫',
-        'color' => '#f3e5f5',
-        'items' => ['Packaging (Small Pouch)', 'Packaging (Large Pouch)', 'Packaging (Sample Pouch)', 'Box (Carton - Large)', 'Box (Carton - Medium)', 'Box (Carton - Small)', 'Paper bags']
-    ],
-    'Tape & Sealing' => [
-        'icon' => '🔒',
-        'color' => '#e8f5e9',
-        'items' => ['Tape (Packaging)']
-    ],
-    'Containers' => [
-        'icon' => '🫙',
-        'color' => '#fce4ec',
-        'items' => ['Reusable Tubs', 'Jars', 'Bottles', 'Crates']
-    ],
-    'Packaging Tools' => [
-        'icon' => '🔧',
-        'color' => '#e0f7fa',
-        'items' => ['Heat sealers', 'Weighing scales', 'Plastic Funnel']
-    ],
+    'Bags & Wraps'    => ['items' => ['Frozen bags','Plastic rolls','Shrink wrap roll','Ziplock bag']],
+    'Labels & Print'  => ['items' => ['Sticker (Light Green)','Sticker (Blue Green)','Sticker (Green)','Brochure']],
+    'Pouches & Boxes' => ['items' => ['Packaging (Small Pouch)','Packaging (Large Pouch)','Packaging (Sample Pouch)','Box (Carton - Large)','Box (Carton - Medium)','Box (Carton - Small)','Paper bags']],
+    'Tape & Sealing'  => ['items' => ['Tape (Packaging)']],
+    'Containers'      => ['items' => ['Reusable Tubs','Jars','Bottles','Crates']],
+    'Packaging Tools' => ['items' => ['Heat sealers','Weighing scales','Plastic Funnel']],
 ];
 
-// Fetch all packaging items once
-$packagingRaw = $conn->query("
-    SELECT * FROM inventory_supplies 
-    WHERE category = 'Packaging Material'
-");
 $packagingAll = [];
-while ($r = $packagingRaw->fetch_assoc()) {
+foreach ($pdo->query("SELECT * FROM inventory_supplies WHERE category = 'Packaging Material'")->fetchAll() as $r) {
     $packagingAll[$r['item_name']] = $r;
 }
+
+require_once 'includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Supplies Inventory | Blue Eco Farm</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/sidebar_style.css">
-<style>
 
-:root {
-    --green:        #2d5a27;
-    --green-soft:   #e8f5e9;
-    --green-mid:    #4caf50;
-    --yellow:       #f59e0b;
-    --yellow-soft:  #fffbeb;
-    --red:          #ef4444;
-    --red-soft:     #fef2f2;
-    --bg:           #f6f8f6;
-    --surface:      #ffffff;
-    --border:       #e8ece8;
-    --text:         #1a2e1a;
-    --muted:        #7a8f7a;
-    --radius:       18px;
-}
+<h1 class="page-title">Supplies Inventory</h1>
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    display: flex;
-}
-
-.main {
-    margin-left: 260px;
-    flex-grow: 1;
-    padding: 40px 48px;
-    max-width: 1200px;
-}
-
-/* ── PAGE HEADER ── */
-.page-header {
-    margin-bottom: 30px;
-}
-
-.page-header h2 {
-    font-family: 'DM Serif Display', serif;
-    font-size: 2rem;
-    font-weight: 400;
-    color: var(--green);
-    margin-bottom: 6px;
-}
-
-.page-header p {
-    color: var(--muted);
-    font-size: 0.95rem;
-}
-
-/* ── SUMMARY STRIP ── */
-.summary-strip {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 36px;
-    flex-wrap: wrap;
-}
-
-.summary-pill {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 50px;
-    padding: 10px 18px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-}
-
-.summary-pill .pill-icon {
-    font-size: 1.1rem;
-}
-
-.summary-pill .pill-count {
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--text);
-}
-
-.summary-pill .pill-label {
-    font-size: 0.82rem;
-    color: var(--muted);
-    font-weight: 500;
-}
-
-.summary-pill.alert {
-    border-color: #fca5a5;
-    background: var(--red-soft);
-}
-
-.summary-pill.alert .pill-count {
-    color: var(--red);
-}
-
-/* ── SECTION ── */
-.section {
-    margin-bottom: 40px;
-}
-
-.section-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
-}
-
-.section-header .section-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-}
-
-.section-header h3 {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--green);
-}
-
-.section-header .item-count {
-    font-size: 0.78rem;
-    background: var(--green-soft);
-    color: var(--green);
-    padding: 3px 10px;
-    border-radius: 50px;
-    font-weight: 600;
-    margin-left: 4px;
-}
-
-/* ── CARD GRID ── */
-.card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 12px;
-}
-
-.supply-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px 18px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    transition: box-shadow 0.2s, transform 0.2s;
-}
-
-.supply-card:hover {
-    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-    transform: translateY(-2px);
-}
-
-.supply-card .card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 12px;
-}
-
-.supply-card .item-name {
-    font-weight: 600;
-    font-size: 0.9rem;
-    line-height: 1.3;
-    max-width: 140px;
-}
-
-/* STATUS CHIP */
-.status-chip {
-    font-size: 0.72rem;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 50px;
-    flex-shrink: 0;
-    letter-spacing: 0.02em;
-}
-
-.chip-normal   { background: var(--green-soft); color: var(--green); }
-.chip-low      { background: var(--yellow-soft); color: var(--yellow); }
-.chip-critical { background: var(--red-soft); color: var(--red); }
-
-/* STOCK ROW */
-.stock-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 8px;
-}
-
-.stock-number {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--text);
-    line-height: 1;
-}
-
-.stock-unit {
-    font-size: 0.78rem;
-    color: var(--muted);
-    margin-left: 4px;
-    font-weight: 500;
-}
-
-.threshold-note {
-    font-size: 0.78rem;
-    color: var(--muted);
-}
-
-/* PROGRESS BAR */
-.progress-track {
-    height: 5px;
-    background: var(--border);
-    border-radius: 99px;
-    overflow: hidden;
-    margin-top: 4px;
-}
-
-.progress-fill {
-    height: 100%;
-    border-radius: 99px;
-    transition: width 0.4s ease;
-}
-
-.fill-normal   { background: var(--green-mid); }
-.fill-low      { background: var(--yellow); }
-.fill-critical { background: var(--red); }
-
-
-
-/* ── SIMPLE LIST ── */
-.simple-list {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-
-.simple-list-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 18px;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.15s;
-}
-
-.simple-list-row:last-child {
-    border-bottom: none;
-}
-
-.simple-list-row:hover {
-    background: var(--bg);
-}
-
-.simple-list-name {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--text);
-}
-
-.simple-list-qty {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--green);
-}
-
-.simple-list-unit {
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: var(--muted);
-}
-
-/* ── SUBSECTIONS ── */
-.subsection {
-    margin-bottom: 28px;
-}
-
-.subsection-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    padding-left: 2px;
-}
-
-.subsection-icon {
-    width: 26px;
-    height: 26px;
-    border-radius: 7px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-}
-
-.subsection-title {
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-</style>
-</head>
-
-<body>
-
-<?php include 'includes/staff_sidebar.php'; ?>
-
-<div class="main">
-
-    <!-- HEADER -->
-    <div class="page-header">
-        <h2>Supplies Inventory</h2>
-        <p>Current stock levels of packaging and production materials</p>
+<!-- Edit stock modal -->
+<div id="editModal" class="modal-overlay">
+    <div class="card" style="width:340px;max-width:95vw;margin:0;">
+        <h2 style="margin-bottom:1rem;font-size:1rem;">Update Stock</h2>
+        <div style="font-weight:600;margin-bottom:1rem;" id="editItemName"></div>
+        <input type="hidden" id="editItemId">
+        <div class="form-group">
+            <label>Action</label>
+            <select id="editType">
+                <option value="add">Add stock</option>
+                <option value="subtract">Remove stock</option>
+                <option value="set">Set exact amount</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Amount</label>
+            <input type="number" id="editAmount" min="0" placeholder="e.g. 10">
+        </div>
+        <div id="editError"></div>
+        <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
+            <button class="btn btn-primary" style="flex:1;" onclick="saveStock()">Save</button>
+            <button class="btn btn-secondary" style="flex:1;" onclick="closeEdit()">Cancel</button>
+        </div>
     </div>
-
-    <!-- SUMMARY STRIP -->
-    <div class="summary-strip">
-
-        <div class="summary-pill">
-            <span class="pill-icon">🌿</span>
-            <span class="pill-count"><?php echo $productionCount; ?></span>
-            <span class="pill-label">Production Items</span>
-        </div>
-
-        <div class="summary-pill">
-            <span class="pill-icon">📦</span>
-            <span class="pill-count"><?php echo $packagingCount; ?></span>
-            <span class="pill-label">Packaging Items</span>
-        </div>
-
-        <div class="summary-pill <?php echo $lowStockCount > 0 ? 'alert' : ''; ?>">
-            <span class="pill-icon">⚠️</span>
-            <span class="pill-count"><?php echo $lowStockCount; ?></span>
-            <span class="pill-label">Low Stock Items</span>
-        </div>
-
-    </div>
-
-    <!-- PRODUCTION ESSENTIALS -->
-    <div class="section">
-
-        <div class="section-header">
-            <div class="section-icon" style="background:#e8f5e9;">🌿</div>
-            <h3>Production Essentials</h3>
-            <span class="item-count"><?php echo $productionCount; ?> items</span>
-        </div>
-
-        <div class="card-grid">
-        <?php while($row = $production->fetch_assoc()):
-            $stock      = $row['current_stock_level'];
-            $threshold  = $row['reorder_point'];
-            $unit       = $row['unit_of_measure'];
-            $ratio      = $threshold > 0 ? min($stock / ($threshold * 2), 1) : 1;
-            $pct        = round($ratio * 100);
-            $showStatus = true;
-
-            // Do not render a status label for items that are not consumed often or are not replenished immediately.
-            if ($row['item_name'] === 'First aid kit') {
-                $showStatus = false;
-                $fillClass = 'fill-normal';
-            } elseif ($stock <= $threshold * 0.5) {
-                $chipClass = 'chip-critical';
-                $fillClass = 'fill-critical';
-                $label     = 'Critical';
-            } elseif ($stock <= $threshold) {
-                $chipClass = 'chip-low';
-                $fillClass = 'fill-low';
-                $label     = 'Low Stock';
-            } else {
-                $chipClass = 'chip-normal';
-                $fillClass = 'fill-normal';
-                $label     = 'Normal';
-            }
-        ?>
-            <div class="supply-card">
-                <div class="card-top">
-                    <div class="item-name"><?php echo htmlspecialchars($row['item_name']); ?></div>
-                    <?php if ($showStatus): ?>
-                        <span class="status-chip <?php echo $chipClass; ?>"><?php echo $label; ?></span>
-                    <?php endif; ?>
-                </div>
-                <div class="stock-row">
-                    <div>
-                        <span class="stock-number"><?php echo number_format($stock); ?></span>
-                        <span class="stock-unit"><?php echo htmlspecialchars($unit); ?></span>
-                    </div>
-                </div>
-                <div class="progress-track">
-                    <div class="progress-fill <?php echo $fillClass; ?>" style="width:<?php echo $pct; ?>%"></div>
-                </div>
-            </div>
-        <?php endwhile; ?>
-        </div>
-
-    </div>
-
-    <!-- PACKAGING MATERIALS -->
-    <div class="section">
-
-        <div class="section-header">
-            <div class="section-icon" style="background:#fff3e0;">📦</div>
-            <h3>Packaging Materials</h3>
-            <span class="item-count"><?php echo $packagingCount; ?> items</span>
-        </div>
-
-        <?php foreach ($packagingGroups as $groupName => $group): ?>
-
-        <div class="subsection">
-            <div class="subsection-header">
-                <span class="subsection-icon" style="background:<?php echo $group['color']; ?>"><?php echo $group['icon']; ?></span>
-                <span class="subsection-title"><?php echo $groupName; ?></span>
-            </div>
-
-            <?php
-            $listGroups = ['Containers', 'Packaging Tools'];
-            $useList = in_array($groupName, $listGroups);
-            ?>
-
-            <?php if ($useList): ?>
-            <div class="simple-list">
-            <?php foreach ($group['items'] as $itemName):
-                if (!isset($packagingAll[$itemName])) continue;
-                $row   = $packagingAll[$itemName];
-                $stock = $row['current_stock_level'];
-                $unit  = $row['unit_of_measure'];
-            ?>
-                <div class="simple-list-row">
-                    <span class="simple-list-name"><?php echo htmlspecialchars($row['item_name']); ?></span>
-                    <span class="simple-list-qty"><?php echo number_format($stock); ?> <span class="simple-list-unit"><?php echo htmlspecialchars($unit); ?></span></span>
-                </div>
-            <?php endforeach; ?>
-            </div>
-
-            <?php else: ?>
-            <div class="card-grid">
-            <?php foreach ($group['items'] as $itemName):
-                if (!isset($packagingAll[$itemName])) continue;
-                $row       = $packagingAll[$itemName];
-                $stock     = $row['current_stock_level'];
-                $threshold = $row['reorder_point'];
-                $unit      = $row['unit_of_measure'];
-                $ratio     = $threshold > 0 ? min($stock / ($threshold * 2), 1) : 1;
-                $pct       = round($ratio * 100);
-
-                if ($stock <= $threshold * 0.5) {
-                    $chipClass = 'chip-critical';
-                    $fillClass = 'fill-critical';
-                    $label     = 'Critical';
-                } elseif ($stock <= $threshold) {
-                    $chipClass = 'chip-low';
-                    $fillClass = 'fill-low';
-                    $label     = 'Low Stock';
-                } else {
-                    $chipClass = 'chip-normal';
-                    $fillClass = 'fill-normal';
-                    $label     = 'Normal';
-                }
-            ?>
-                <div class="supply-card">
-                    <div class="card-top">
-                        <div class="item-name"><?php echo htmlspecialchars($row['item_name']); ?></div>
-                        <span class="status-chip <?php echo $chipClass; ?>"><?php echo $label; ?></span>
-                    </div>
-                    <div class="stock-row">
-                        <div>
-                            <span class="stock-number"><?php echo number_format($stock); ?></span>
-                            <span class="stock-unit"><?php echo htmlspecialchars($unit); ?></span>
-                        </div>
-                    </div>
-                    <div class="progress-track">
-                        <div class="progress-fill <?php echo $fillClass; ?>" style="width:<?php echo $pct; ?>%"></div>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-            </div>
-            <?php endif; ?>
-        </div>
-
-        <?php endforeach; ?>
-
-    </div>
-
 </div>
 
-</body>
-</html>
+<!-- Stat summary -->
+<div style="display:flex;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+    <div class="card" style="padding:0.75rem 1.25rem;display:flex;align-items:center;gap:0.6rem;">
+        <span style="font-size:1.3rem;font-weight:700;color:#1b5e20;"><?= $productionCount ?></span>
+        <span style="font-size:0.82rem;color:#888;">Production Items</span>
+    </div>
+    <div class="card" style="padding:0.75rem 1.25rem;display:flex;align-items:center;gap:0.6rem;">
+        <span style="font-size:1.3rem;font-weight:700;color:#1b5e20;"><?= $packagingCount ?></span>
+        <span style="font-size:0.82rem;color:#888;">Packaging Items</span>
+    </div>
+    <div class="card" style="padding:0.75rem 1.25rem;display:flex;align-items:center;gap:0.6rem;<?= $lowStockCount > 0 ? 'border-color:#fca5a5;background:#fff5f5;' : '' ?>">
+        <span style="font-size:1.3rem;font-weight:700;color:<?= $lowStockCount > 0 ? '#c62828' : '#1b5e20' ?>;"><?= $lowStockCount ?></span>
+        <span style="font-size:0.82rem;color:#888;">Low Stock</span>
+    </div>
+</div>
+
+<!-- Production Essentials -->
+<div class="card" style="margin-bottom:1.5rem;">
+    <h2 style="margin-bottom:1rem;">Production Essentials</h2>
+    <div class="supply-grid">
+    <?php foreach ($production as $row):
+        $stock = (int)$row['current_stock_level'];
+        $thr   = (int)$row['reorder_point'];
+        $unit  = $row['unit_of_measure'];
+        $pct   = $thr > 0 ? min(round($stock / ($thr * 2) * 100), 100) : 100;
+        if ($stock <= $thr * 0.5)  { $chip = 'schip-crit'; $fill = '#c62828'; $label = 'Critical'; }
+        elseif ($stock <= $thr)    { $chip = 'schip-low';  $fill = '#f59e0b'; $label = 'Low'; }
+        else                       { $chip = 'schip-ok';   $fill = '#4caf50'; $label = 'OK'; }
+    ?>
+        <div class="supply-card" id="card-<?= $row['id'] ?>">
+            <div class="supply-card-header">
+                <div class="supply-card-name"><?= htmlspecialchars($row['item_name']) ?></div>
+                <span class="schip <?= $chip ?>"><?= $label ?></span>
+            </div>
+            <div class="supply-card-qty" id="qty-<?= $row['id'] ?>">
+                <?= number_format($stock) ?>
+                <span class="supply-card-unit"><?= htmlspecialchars($unit) ?></span>
+            </div>
+            <div class="prog-track">
+                <div class="prog-fill" style="width:<?= $pct ?>%;background:<?= $fill ?>;"></div>
+            </div>
+            <div class="supply-card-footer">
+                <div class="supply-reorder-label">Reorder at <?= $thr ?></div>
+                <button class="supply-update-btn" onclick="openEdit(<?= $row['id'] ?>, '<?= addslashes($row['item_name']) ?>')">+ Update</button>
+            </div>
+        </div>
+    <?php endforeach; ?>
+    </div>
+</div>
+
+<!-- Packaging Materials -->
+<div class="card">
+    <h2 style="margin-bottom:0.5rem;">Packaging Materials</h2>
+    <?php foreach ($packagingGroups as $groupName => $group): ?>
+        <div class="subsec-label"><?= $groupName ?></div>
+        <div class="supply-grid">
+        <?php foreach ($group['items'] as $itemName):
+            if (!isset($packagingAll[$itemName])) continue;
+            $row   = $packagingAll[$itemName];
+            $stock = (int)$row['current_stock_level'];
+            $thr   = (int)$row['reorder_point'];
+            $unit  = $row['unit_of_measure'];
+            $pct   = $thr > 0 ? min(round($stock / ($thr * 2) * 100), 100) : 100;
+            if ($stock <= $thr * 0.5)  { $chip = 'schip-crit'; $fill = '#c62828'; $label = 'Critical'; }
+            elseif ($stock <= $thr)    { $chip = 'schip-low';  $fill = '#f59e0b'; $label = 'Low'; }
+            else                       { $chip = 'schip-ok';   $fill = '#4caf50'; $label = 'OK'; }
+        ?>
+            <div class="supply-card" id="card-<?= $row['id'] ?>">
+                <div class="supply-card-header">
+                    <div class="supply-card-name"><?= htmlspecialchars($row['item_name']) ?></div>
+                    <span class="schip <?= $chip ?>"><?= $label ?></span>
+                </div>
+                <div class="supply-card-qty" id="qty-<?= $row['id'] ?>">
+                    <?= number_format($stock) ?>
+                    <span class="supply-card-unit"><?= htmlspecialchars($unit) ?></span>
+                </div>
+                <div class="prog-track">
+                    <div class="prog-fill" style="width:<?= $pct ?>%;background:<?= $fill ?>;"></div>
+                </div>
+                <div class="supply-card-footer">
+                    <div class="supply-reorder-label">Reorder at <?= $thr ?></div>
+                    <button class="supply-update-btn" onclick="openEdit(<?= $row['id'] ?>, '<?= addslashes($row['item_name']) ?>')">+ Update</button>
+                </div>
+            </div>
+        <?php endforeach; ?>
+        </div>
+    <?php endforeach; ?>
+</div>
+
+<script>
+let currentEditId = null;
+
+function openEdit(id, name) {
+    currentEditId = id;
+    document.getElementById('editItemId').value         = id;
+    document.getElementById('editItemName').textContent = name;
+    document.getElementById('editAmount').value         = '';
+    document.getElementById('editError').innerHTML      = '';
+    document.getElementById('editType').value           = 'add';
+    document.getElementById('editModal').classList.add('open');
+    document.getElementById('editAmount').focus();
+}
+function closeEdit() {
+    document.getElementById('editModal').classList.remove('open');
+    currentEditId = null;
+}
+async function saveStock() {
+    const id     = currentEditId;
+    const type   = document.getElementById('editType').value;
+    const amount = parseInt(document.getElementById('editAmount').value);
+    const errEl  = document.getElementById('editError');
+    errEl.innerHTML = '';
+    if (isNaN(amount) || amount < 0) {
+        errEl.innerHTML = '<div class="alert alert-error">Please enter a valid amount.</div>';
+        return;
+    }
+    const url  = type === 'set' ? 'api/supplies.php?action=update_stock' : 'api/supplies.php?action=adjust_stock';
+    const body = type === 'set' ? JSON.stringify({id, stock:amount}) : JSON.stringify({id, amount, type});
+    const res  = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body});
+    const json = await res.json();
+    if (json.success) { closeEdit(); location.reload(); }
+    else errEl.innerHTML = `<div class="alert alert-error">${json.error}</div>`;
+}
+document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) closeEdit();
+});
+</script>
+
+<?php require_once 'includes/footer.php'; ?>

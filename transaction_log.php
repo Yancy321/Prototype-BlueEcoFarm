@@ -20,14 +20,14 @@ require_once 'includes/header.php';
 function sortLink(string $col, string $label, string $current, string $dir): string {
     $newDir = ($col === $current && $dir === 'DESC') ? 'asc' : 'desc';
     $arrow  = $col === $current ? ($dir === 'DESC' ? ' ▼' : ' ▲') : '';
-    return "<a href='?sort={$col}&dir={$newDir}&page=1' style='color:#2e7d32;text-decoration:none;'>{$label}{$arrow}</a>";
+    return "<a href='?sort={$col}&dir={$newDir}&page=1' class='sort-link'>{$label}{$arrow}</a>";
 }
 ?>
 
-<h1 style="margin-bottom:1.5rem;color:#2e7d32;">Transaction Log</h1>
+<h1 class="page-title">Transaction Log</h1>
 
 <div class="card">
-    <p style="margin-bottom:1rem;font-size:0.9rem;color:#555;">Total entries: <?= $total ?></p>
+    <p class="txlog-total">Total entries: <?= $total ?></p>
     <table>
         <thead>
             <tr>
@@ -49,9 +49,7 @@ function sortLink(string $col, string $label, string $current, string $dir): str
                 <td><?= htmlspecialchars($log['operation']) ?></td>
                 <td><?= htmlspecialchars($log['table_name']) ?></td>
                 <td><?= $log['record_id'] ?></td>
-                <td style="font-size:0.78rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                    <?= htmlspecialchars($log['snapshot'] ?? '') ?>
-                </td>
+                <td class="txlog-snapshot"><?= htmlspecialchars($log['snapshot'] ?? '') ?></td>
                 <td><?= $log['changed_at'] ?></td>
             </tr>
             <?php endforeach; ?>
@@ -59,9 +57,8 @@ function sortLink(string $col, string $label, string $current, string $dir): str
         </tbody>
     </table>
 
-    <!-- Pagination -->
     <?php if ($pages > 1): ?>
-    <div class="pagination" style="margin-top:1rem;">
+    <div class="pagination">
         <?php for ($i = 1; $i <= $pages; $i++): ?>
             <a href="?sort=<?= $sort ?>&dir=<?= strtolower($dir) ?>&page=<?= $i ?>"
                class="<?= $i === $page ? 'active' : '' ?>"><?= $i ?></a>

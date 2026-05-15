@@ -326,25 +326,25 @@ body {
     <!-- STAT CARDS -->
     <div class="stat-grid">
         <div class="stat-card">
-            <div class="stat-icon" style="background:#e8f5e4;">📦</div>
+            <div class="stat-icon" style="background:#e8f5e4;"></div>
             <div class="stat-value"><?= number_format($totalOrders) ?></div>
             <div class="stat-label">Total Orders</div>
             <div class="stat-sub">All advance orders placed</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon" style="background:#fff7e6;">🕒</div>
+            <div class="stat-icon" style="background:#fff7e6;"></div>
             <div class="stat-value"><?= number_format($pendingOrders) ?></div>
             <div class="stat-label">Pending Orders</div>
             <div class="stat-sub">Awaiting approval</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon" style="background:#e0f2fe;">✅</div>
+            <div class="stat-icon" style="background:#e0f2fe;"></div>
             <div class="stat-value"><?= number_format($fulfilledOrders) ?></div>
             <div class="stat-label">Fulfilled Orders</div>
             <div class="stat-sub">Successfully delivered</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon" style="background:#fce7f3;">⏳</div>
+            <div class="stat-icon" style="background:#fce7f3;"></div>
             <div class="stat-value"><?= number_format($waitlistCount) ?></div>
             <div class="stat-label">Waitlist Items</div>
             <div class="stat-sub"><?= $unnotifiedWaitlist ?> pending notification</div>
@@ -356,21 +356,21 @@ body {
     <div class="actions-grid">
         <div class="action-card" onclick="window.location='place_order.php'">
             <a href="place_order.php" class="arrow">❯</a>
-            <div class="action-icon" style="background:#e8f5e4;">🛒</div>
+            <div class="action-icon" style="background:#e8f5e4;"></div>
             <div class="action-title">Place Advance Order</div>
             <div class="action-desc">Reserve products ahead of time with a target delivery date.</div>
             <a href="place_order.php" class="btn-go" onclick="event.stopPropagation()">Order Now</a>
         </div>
         <div class="action-card" onclick="window.location='waitlist.php'">
             <a href="waitlist.php" class="arrow">❯</a>
-            <div class="action-icon" style="background:#fff7e6;">⏳</div>
+            <div class="action-icon" style="background:#fff7e6;"></div>
             <div class="action-title">Join Waitlist</div>
             <div class="action-desc">Get notified when out-of-stock products become available.</div>
             <a href="waitlist.php" class="btn-go" onclick="event.stopPropagation()">View Waitlist</a>
         </div>
         <div class="action-card" onclick="window.location='my_orders.php'">
             <a href="my_orders.php" class="arrow">❯</a>
-            <div class="action-icon" style="background:#e0f2fe;">📋</div>
+            <div class="action-icon" style="background:#e0f2fe;"></div>
             <div class="action-title">Track My Orders</div>
             <div class="action-desc">View status updates on all your advance orders.</div>
             <a href="my_orders.php" class="btn-go" onclick="event.stopPropagation()">View Orders</a>
@@ -417,7 +417,7 @@ body {
             </table>
             <?php else: ?>
             <div class="empty-state">
-                <div class="empty-icon">📋</div>
+                <div class="empty-icon"></div>
                 <p>No orders yet.<br>Place your first advance order!</p>
             </div>
             <?php endif; ?>
@@ -426,7 +426,7 @@ body {
         <!-- LIVE PRODUCT AVAILABILITY -->
         <div class="panel">
             <div class="panel-header">
-                <h4>🟢 Product Availability</h4>
+                <h4>Product Availability</h4>
                 <a href="place_order.php">Order →</a>
             </div>
             <?php
@@ -457,7 +457,7 @@ body {
             </div>
             <?php else: ?>
             <div class="empty-state">
-                <div class="empty-icon">🌿</div>
+                <div class="empty-icon"></div>
                 <p>No products found.</p>
             </div>
             <?php endif; ?>
@@ -505,7 +505,7 @@ body {
         </table>
         <?php else: ?>
         <div class="empty-state">
-            <div class="empty-icon">⏳</div>
+            <div class="empty-icon"></div>
             <p>You're not on any waitlists yet.</p>
         </div>
         <?php endif; ?>

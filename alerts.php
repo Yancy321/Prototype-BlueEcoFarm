@@ -9,11 +9,11 @@ require_once 'includes/header.php';
 
 <div id="alertBox"></div>
 
-<!-- Alert Rules -->
+<!-- Add Alert Rule -->
 <div class="card">
     <h2>Add Alert Rule</h2>
-    <form id="formCreate" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;align-items:end;">
-        <div class="form-group" style="margin:0;">
+    <form id="formCreate" class="form-grid-auto">
+        <div class="form-group form-group-inline">
             <label>Product</label>
             <select name="product_id" required>
                 <option value="">— Select —</option>
@@ -22,7 +22,7 @@ require_once 'includes/header.php';
                 <?php endforeach; ?>
             </select>
         </div>
-        <div class="form-group" style="margin:0;">
+        <div class="form-group form-group-inline">
             <label>Warehouse</label>
             <select name="warehouse_id" required>
                 <option value="">— Select —</option>
@@ -30,21 +30,22 @@ require_once 'includes/header.php';
                 <option value="2">Paranaque</option>
             </select>
         </div>
-        <div class="form-group" style="margin:0;">
+        <div class="form-group form-group-inline">
             <label>Threshold (qty)</label>
             <input type="number" name="threshold" min="1" required placeholder="e.g. 50">
         </div>
-        <div class="form-group" style="margin:0;">
+        <div class="form-group form-group-inline">
             <label>Cooldown (minutes)</label>
             <input type="number" name="cooldown_minutes" min="1" value="60">
         </div>
         <div style="display:flex;align-items:flex-end;">
-            <button type="submit" class="btn btn-primary" style="width:100%;">+ Add Rule</button>
+            <button type="submit" class="btn btn-primary btn-full">+ Add Rule</button>
         </div>
     </form>
-    <div id="createError" style="margin-top:0.75rem;"></div>
+    <div id="createError"></div>
 </div>
 
+<!-- Existing Rules -->
 <div class="card">
     <h2>Existing Rules</h2>
     <div class="table-wrap">
@@ -60,11 +61,11 @@ require_once 'includes/header.php';
     </div>
 </div>
 
-<!-- Recipients per Product -->
+<!-- Manage Recipients -->
 <div class="card">
     <h2>Manage Recipients by Product</h2>
-    <div style="display:flex;gap:0.75rem;align-items:flex-end;margin-bottom:1rem;flex-wrap:wrap;">
-        <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+    <div class="form-grid-auto" style="margin-bottom:1rem;">
+        <div class="form-group form-group-inline" style="flex:1;min-width:180px;">
             <label>Select Product</label>
             <select id="recipientProductFilter">
                 <option value="">— Select product —</option>
@@ -76,18 +77,18 @@ require_once 'includes/header.php';
     </div>
 
     <div id="recipientSection" style="display:none;">
-        <div style="display:flex;gap:0.75rem;align-items:flex-end;margin-bottom:1rem;flex-wrap:wrap;">
-            <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+        <div class="form-grid-auto" style="margin-bottom:1rem;">
+            <div class="form-group form-group-inline" style="flex:1;min-width:180px;">
                 <label>Phone Number (E.164 or PH format)</label>
                 <input type="text" id="newPhone" placeholder="e.g. 09151042742 or +639151042742">
             </div>
-            <div class="form-group" style="margin:0;width:160px;">
+            <div class="form-group form-group-inline" style="width:160px;">
                 <label>Label (optional)</label>
                 <input type="text" id="newLabel" placeholder="e.g. Manager">
             </div>
             <button class="btn btn-primary" onclick="addRecipient()">+ Add</button>
         </div>
-        <div id="recipientError" style="margin-bottom:0.5rem;"></div>
+        <div id="recipientError"></div>
         <div class="table-wrap">
             <table id="recipientsTable">
                 <thead>
@@ -100,8 +101,8 @@ require_once 'includes/header.php';
 </div>
 
 <!-- Edit Rule Modal -->
-<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:center;justify-content:center;">
-    <div class="card" style="width:480px;max-width:95vw;margin:0;">
+<div id="editModal" class="modal-overlay">
+    <div class="card modal-card">
         <h2>Edit Alert Rule</h2>
         <form id="formEdit">
             <input type="hidden" id="editId">
@@ -137,10 +138,10 @@ require_once 'includes/header.php';
                     <option value="0">No</option>
                 </select>
             </div>
-            <div id="editError" style="margin-bottom:0.75rem;"></div>
-            <div style="display:flex;gap:0.75rem;">
-                <button type="submit" class="btn btn-primary" style="flex:1;">Save</button>
-                <button type="button" class="btn btn-secondary" style="flex:1;" onclick="closeModal()">Cancel</button>
+            <div id="editError"></div>
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
             </div>
         </form>
     </div>
@@ -159,13 +160,13 @@ function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Alert Rules ──────────────────────────────────────────
 async function loadRules() {
     const res  = await fetch('api/alerts.php?action=list');
     const data = await res.json();
     const tbody = document.querySelector('#rulesTable tbody');
     if (!Array.isArray(data) || !data.length) {
-        tbody.innerHTML = '<tr><td colspan="8" style="color:#888;">No alert rules yet.</td></tr>'; return;
+        tbody.innerHTML = '<tr><td colspan="8" class="cell-sub">No alert rules yet.</td></tr>';
+        return;
     }
     tbody.innerHTML = data.map(r => {
         const recips = Array.isArray(r.recipients)
@@ -179,14 +180,13 @@ async function loadRules() {
             <td>${escHtml(r.product_name)}</td>
             <td>${warehouseNames[r.warehouse_id]||r.warehouse_id}</td>
             <td>${r.threshold}</td>
-            <td style="font-size:0.8rem;">${recips}</td>
+            <td class="cell-sm">${recips}</td>
             <td>${r.cooldown_minutes} min</td>
             <td>${active}</td>
             <td>
-                <button class="btn btn-primary" style="padding:0.3rem 0.65rem;font-size:0.8rem;margin-right:0.3rem;"
+                <button class="btn btn-primary btn-sm" style="margin-right:0.3rem;"
                     onclick='openEdit(${JSON.stringify(r).replace(/"/g,"&quot;")})'>Edit</button>
-                <button class="btn btn-danger" style="padding:0.3rem 0.65rem;font-size:0.8rem;"
-                    onclick="deleteRule(${r.id})">Delete</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteRule(${r.id})">Delete</button>
             </td>
         </tr>`;
     }).join('');
@@ -212,9 +212,9 @@ function openEdit(r) {
     document.getElementById('editCooldown').value  = r.cooldown_minutes;
     document.getElementById('editActive').value    = r.is_active;
     document.getElementById('editError').innerHTML = '';
-    document.getElementById('editModal').style.display = 'flex';
+    document.getElementById('editModal').classList.add('open');
 }
-function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+function closeModal() { document.getElementById('editModal').classList.remove('open'); }
 
 document.getElementById('formEdit').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -244,7 +244,6 @@ async function deleteRule(id) {
     else showAlert(json.error||'Error', 'error');
 }
 
-// ── Recipients ───────────────────────────────────────────
 document.getElementById('recipientProductFilter').addEventListener('change', function() {
     currentProductId = this.value || null;
     document.getElementById('recipientSection').style.display = currentProductId ? 'block' : 'none';
@@ -256,14 +255,14 @@ async function loadRecipients() {
     const data = await res.json();
     const tbody = document.querySelector('#recipientsTable tbody');
     if (!Array.isArray(data) || !data.length) {
-        tbody.innerHTML = '<tr><td colspan="4" style="color:#888;">No recipients yet.</td></tr>'; return;
+        tbody.innerHTML = '<tr><td colspan="4" class="cell-sub">No recipients yet.</td></tr>';
+        return;
     }
     tbody.innerHTML = data.map(r => `<tr>
         <td>${r.id}</td>
         <td>${escHtml(r.phone)}</td>
         <td>${escHtml(r.label||'—')}</td>
-        <td><button class="btn btn-danger" style="padding:0.25rem 0.6rem;font-size:0.8rem;"
-            onclick="deleteRecipient(${r.id})">Remove</button></td>
+        <td><button class="btn btn-danger btn-xs" onclick="deleteRecipient(${r.id})">Remove</button></td>
     </tr>`).join('');
 }
 
@@ -271,7 +270,10 @@ async function addRecipient() {
     document.getElementById('recipientError').innerHTML = '';
     const phone = document.getElementById('newPhone').value.trim();
     const label = document.getElementById('newLabel').value.trim();
-    if (!phone) { document.getElementById('recipientError').innerHTML = '<div class="alert alert-error">Phone is required.</div>'; return; }
+    if (!phone) {
+        document.getElementById('recipientError').innerHTML = '<div class="alert alert-error">Phone is required.</div>';
+        return;
+    }
     const res  = await fetch('api/alerts.php?action=add_recipient', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({product_id: currentProductId, phone, label})

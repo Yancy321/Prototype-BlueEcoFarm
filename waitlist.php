@@ -190,25 +190,25 @@ body { font-family: 'DM Sans', sans-serif; background: var(--green-tint); color:
         <p>Get notified when out-of-stock products become available.</p>
     </div>
 
-    <?php if ($success): ?><div class="alert alert-success">✅ <?= htmlspecialchars($success) ?></div><?php endif; ?>
-    <?php if ($error):   ?><div class="alert alert-error">⚠️ <?= htmlspecialchars($error) ?></div><?php endif; ?>
+    <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
+    <?php if ($error):   ?><div class="alert alert-error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 
     <!-- STATS -->
     <div class="stat-grid">
         <div class="stat-card">
-            <div class="stat-icon" style="background:#fce7f3;">⏳</div>
+            <div class="stat-icon" style="background:#fce7f3;"></div>
             <div class="stat-value"><?= $totalWL ?></div>
             <div class="stat-label">Total Waitlist Items</div>
             <div class="stat-sub">Products you're tracking</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon" style="background:#fff7e6;">🔔</div>
+            <div class="stat-icon" style="background:#fff7e6;"></div>
             <div class="stat-value"><?= $waitingCount ?></div>
             <div class="stat-label">Awaiting Notification</div>
             <div class="stat-sub">Still out of stock</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon" style="background:#e8f5e4;">✅</div>
+            <div class="stat-icon" style="background:#e8f5e4;"></div>
             <div class="stat-value"><?= $notifiedCount ?></div>
             <div class="stat-label">Notified</div>
             <div class="stat-sub">Back in stock alerts sent</div>
@@ -220,7 +220,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--green-tint); color:
         <!-- MY WAITLIST -->
         <div class="panel">
             <div class="panel-header">
-                <h4>⏳ My Waitlist Entries</h4>
+                <h4>My Waitlist Entries</h4>
                 <span><?= $totalWL ?> item<?= $totalWL !== 1 ? 's' : '' ?></span>
             </div>
             <?php if ($waitlistRows): ?>
@@ -272,7 +272,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--green-tint); color:
             </table>
             <?php else: ?>
             <div class="empty-state">
-                <div class="empty-icon">⏳</div>
+                <div class="empty-icon"></div>
                 <p>You're not on any waitlists yet.<br>Join one from the list on the right.</p>
             </div>
             <?php endif; ?>
@@ -281,7 +281,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--green-tint); color:
         <!-- JOIN WAITLIST -->
         <div class="panel">
             <div class="panel-header">
-                <h4>🔔 Join a Waitlist</h4>
+                <h4>Join a Waitlist</h4>
                 <span><?= count($joinRows) ?> product<?= count($joinRows) !== 1 ? 's' : '' ?></span>
             </div>
             <?php if ($joinRows): ?>
@@ -308,7 +308,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--green-tint); color:
                 <?php endforeach; ?>
             <?php else: ?>
             <div class="empty-state">
-                <div class="empty-icon">🌿</div>
+                <div class="empty-icon"></div>
                 <p>You're already on the waitlist for all available products!</p>
             </div>
             <?php endif; ?>

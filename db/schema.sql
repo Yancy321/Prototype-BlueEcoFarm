@@ -126,3 +126,32 @@ CREATE TABLE IF NOT EXISTS sms_alert_log (
     dispatched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (alert_rule_id) REFERENCES alert_rules(id)
 );
+
+-- Distributor accounts linked to user accounts
+CREATE TABLE IF NOT EXISTS distributors (
+    id             INT AUTO_INCREMENT PRIMARY KEY,
+    user_id        INT NOT NULL,
+    business_name  VARCHAR(150) NOT NULL,
+    tier           ENUM('Silver','Gold','Platinum') NOT NULL DEFAULT 'Silver',
+    status         ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+    region         VARCHAR(100) NULL,
+    contact_number VARCHAR(20)  NULL,   -- used during registration
+    phone          VARCHAR(20)  NULL,   -- E.164 or PH format, used for SMS
+    is_active      TINYINT(1)   NOT NULL DEFAULT 0,  -- set to 1 when admin approves
+    notes          TEXT         NULL,
+    created_at     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_at     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Log of every SMS sent to distributors (stock-available notifications)
+CREATE TABLE IF NOT EXISTS distributor_sms_log (
+    id             INT AUTO_INCREMENT PRIMARY KEY,
+    distributor_id INT NOT NULL,
+    recipient      VARCHAR(20)  NOT NULL,
+    message        TEXT         NOT NULL,
+    status         ENUM('success','failure') NOT NULL,
+    error_detail   TEXT         NULL,
+    dispatched_at  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (distributor_id) REFERENCES distributors(id) ON DELETE CASCADE
+);
